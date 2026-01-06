@@ -1,36 +1,175 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Plateforme AFDR
 
-## Getting Started
+Plateforme de gestion complète pour l'AFDR avec 7 modules : Ordres de Mission, MEAL, Finance, Logistique, TdRs, GRH et Rapportage.
 
-First, run the development server:
+## Technologies
 
+- **Frontend** : Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS
+- **Backend** : Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+- **Formulaires** : React Hook Form + Zod
+- **Graphiques** : Recharts
+- **PDF** : jsPDF + html2canvas
+- **Notifications** : Supabase Edge Functions
+
+## Prérequis
+
+- Node.js 18+ 
+- npm ou yarn
+- Compte Supabase
+
+## Installation
+
+1. Cloner le repository
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd afdr-platform
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Installer les dépendances
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Configurer les variables d'environnement
+```bash
+cp .env.local.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Remplir `.env.local` avec vos credentials Supabase :
+```
+NEXT_PUBLIC_SUPABASE_URL=votre_url_supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre_cle_anon
+```
 
-## Learn More
+4. Configurer Supabase
 
-To learn more about Next.js, take a look at the following resources:
+- Créer un projet Supabase
+- Exécuter les migrations SQL dans l'ordre :
+  - `supabase/migrations/001_schema_initial.sql`
+  - `supabase/migrations/002_ordres_mission.sql`
+  - `supabase/migrations/003_meal.sql`
+  - `supabase/migrations/004_finance.sql`
+  - `supabase/migrations/005_logistique.sql`
+  - `supabase/migrations/006_tdr_grh_rapportage.sql`
+  - `supabase/migrations/007_notifications.sql`
+  - `supabase/migrations/008_policies_storage.sql`
+  - `supabase/migrations/009_policies_rls.sql`
+  - `supabase/migrations/010_fonctions.sql`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Créer les buckets Storage :
+  - `documents-ordre-mission`
+  - `documents-projets`
+  - `justificatifs-depenses`
+  - `tdrs`
+  - `documents-grh`
+  - `rapports`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Déployer les Edge Functions :
+  - `supabase/functions/alertes-meal`
+  - `supabase/functions/relances-rapports`
+  - `supabase/functions/envoi-email`
 
-## Deploy on Vercel
+5. Lancer le serveur de développement
+```bash
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Ouvrir [http://localhost:3000](http://localhost:3000) dans votre navigateur.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Structure du projet
+
+```
+src/
+├── app/                    # Routes Next.js
+│   ├── (auth)/            # Routes authentification
+│   ├── (dashboard)/       # Routes protégées
+│   │   ├── ordres-mission/
+│   │   ├── meal/
+│   │   ├── finance/
+│   │   ├── logistique/
+│   │   ├── tdr/
+│   │   ├── grh/
+│   │   └── rapportage/
+│   └── api/               # API routes
+├── components/            # Composants réutilisables
+│   ├── ui/               # Composants UI de base
+│   ├── forms/            # Composants formulaires
+│   ├── layout/           # Composants layout
+│   └── notifications/    # Composants notifications
+├── lib/                   # Utilitaires et configurations
+│   ├── supabase/         # Client Supabase
+│   ├── api/              # Services API
+│   ├── auth/             # Authentification et RBAC
+│   ├── validations/      # Schémas Zod
+│   └── utils/            # Fonctions utilitaires
+└── types/                 # Types TypeScript
+```
+
+## Modules
+
+### 1. Ordres de Mission
+- Soumission d'ordres de mission
+- Circuit de validation (Chef → Finance → Direction)
+- Consultation et suivi
+- Génération PDF
+
+### 2. MEAL
+- Gestion des projets
+- Gestion des activités
+- Suivi de réalisation (physique/financier)
+- Dashboards et alertes
+
+### 3. Finance
+- Gestion des budgets
+- Enregistrement des dépenses
+- Suivi financier
+- Reporting
+
+### 4. Logistique
+- Expression de besoins
+- Gestion des véhicules
+- Planification des entretiens
+
+### 5. TdRs
+- Soumission de TdRs
+- Validation
+- Recherche et archive
+
+### 6. GRH
+- Gestion du personnel
+- Gestion des congés
+- Calendrier des absences
+
+### 7. Rapportage
+- Soumission de rapports
+- Suivi des délais
+- Relances automatiques
+- Archive
+
+## Rôles
+
+- **DIR** : Direction
+- **MEAL** : Suivi des projets
+- **FIN** : Finance
+- **LOG** : Logistique
+- **GRH** : Ressources Humaines
+- **PM** : Project Manager
+- **USER** : Utilisateur standard
+
+## Scripts
+
+- `npm run dev` : Lancer le serveur de développement
+- `npm run build` : Construire pour la production
+- `npm run start` : Lancer le serveur de production
+- `npm run lint` : Vérifier le code avec ESLint
+
+## Notes
+
+- Toutes les tables de la base de données utilisent des noms en français
+- L'interface est entièrement en français
+- Les Edge Functions doivent être configurées avec les variables d'environnement appropriées
+- Les policies RLS sont activées sur toutes les tables pour la sécurité
+
+## Support
+
+Pour toute question ou problème, veuillez contacter l'équipe de développement.
