@@ -81,6 +81,8 @@ async function createTestUser() {
         email_confirm: true,
       })
 
+      let userId: string
+
       if (authError) {
         if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
           console.log('⚠️  L\'utilisateur existe déjà, récupération des informations...')
@@ -89,13 +91,17 @@ async function createTestUser() {
           if (!user) {
             throw new Error('Utilisateur existe mais impossible de le récupérer')
           }
-          authData.user = user
+          userId = user.id
         } else {
           throw authError
         }
+      } else {
+        if (!authData?.user) {
+          throw new Error('Utilisateur créé mais impossible de récupérer les données')
+        }
+        userId = authData.user.id
       }
 
-      const userId = authData.user.id
       console.log('✅ Utilisateur créé avec l\'ID:', userId)
 
       // Créer le profil
@@ -172,4 +178,3 @@ async function createTestUser() {
 }
 
 createTestUser()
-
