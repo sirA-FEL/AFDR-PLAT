@@ -4,7 +4,7 @@
 // La page sera rendue dynamiquement à l'exécution, avec les variables d'environnement Supabase disponibles.
 export const dynamic = "force-dynamic"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
@@ -19,12 +19,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  
+  // Créer le client Supabase uniquement côté client (après le montage)
+  const supabase = useMemo(() => {
+    if (typeof window === 'undefined') {
+      // Retourner null pendant le SSR/build - ne sera pas utilisé
+      return null as any
+    }
+    return createClient()
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
+
+    if (!supabase) {
+      setError("Client Supabase non initialisé")
+      setLoading(false)
+      return
+    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
