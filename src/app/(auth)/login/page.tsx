@@ -46,12 +46,10 @@ export default function LoginPage() {
             .limit(1)
             .single()
 
-          // Rediriger selon le rôle (par défaut vers le dashboard)
-          router.push("/")
-          router.refresh()
+          // Rediriger vers le tableau de bord principal
+          router.replace("/ordres-mission")
         } else {
-          router.push("/")
-          router.refresh()
+          router.replace("/ordres-mission")
         }
       }
     } catch (err: any) {

@@ -1,10 +1,11 @@
+// @ts-nocheck
 /**
  * Script TypeScript pour créer un utilisateur de test dans Supabase
- * 
+ *
  * Usage:
  * 1. Assurez-vous d'avoir les variables d'environnement configurées dans .env.local
  * 2. Exécutez: npx tsx scripts/create-test-user.ts
- * 
+ *
  * OU utilisez directement l'interface Supabase:
  * 1. Allez dans Authentication > Users > Add User
  * 2. Créez l'utilisateur avec email: test@afdr.org, password: Test123456!
