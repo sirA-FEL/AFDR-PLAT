@@ -23,6 +23,9 @@ export interface OrdreMission {
 export const ordresMissionService = {
   // Créer un ordre de mission
   async create(data: Omit<OrdreMission, "id" | "date_creation" | "statut" | "id_demandeur">) {
+    if (typeof window === "undefined") {
+      throw new Error("Cette fonction ne peut être appelée que côté client")
+    }
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
