@@ -22,7 +22,7 @@ export interface OrdreMission {
 
 export const ordresMissionService = {
   // Créer un ordre de mission
-  async create(data: Omit<OrdreMission, "id" | "date_creation" | "statut">) {
+  async create(data: Omit<OrdreMission, "id" | "date_creation" | "statut" | "id_demandeur">) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 

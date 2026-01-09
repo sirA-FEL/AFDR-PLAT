@@ -129,7 +129,7 @@ export default function MesOrdresPage() {
     }
   }
 
-  const handleDownloadPDF = (ordre: OrdreMission) => {
+  const handleDownloadPDF = (ordre: OrdreMissionDisplay) => {
     if (ordre.pdfUrl) {
       window.open(ordre.pdfUrl, "_blank")
     } else {

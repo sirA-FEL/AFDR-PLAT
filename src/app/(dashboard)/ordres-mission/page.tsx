@@ -14,7 +14,7 @@ interface OrdreMission {
   dateDebut: string
   dateFin: string
   motif: string
-  statut: "en_attente" | "approuve" | "rejete" | "en_cours" | "termine"
+  statut: "brouillon" | "en_attente" | "approuve" | "rejete" | "en_cours" | "termine"
   demandeur: string
   dateCreation: string
 }
@@ -80,14 +80,16 @@ export default function OrdresMissionPage() {
   })
 
   const getStatutBadge = (statut: OrdreMission["statut"]) => {
-    const styles = {
+    const styles: Record<OrdreMission["statut"], string> = {
+      brouillon: "bg-gray-100 text-gray-800 border-gray-300",
       en_attente: "bg-yellow-100 text-yellow-800 border-yellow-300",
       approuve: "bg-green-100 text-green-800 border-green-300",
       rejete: "bg-red-100 text-red-800 border-red-300",
       en_cours: "bg-blue-100 text-blue-800 border-blue-300",
-      termine: "bg-gray-100 text-gray-800 border-gray-300",
+      termine: "bg-purple-100 text-purple-800 border-purple-300",
     }
-    const labels = {
+    const labels: Record<OrdreMission["statut"], string> = {
+      brouillon: "Brouillon",
       en_attente: "En attente",
       approuve: "Approuvé",
       rejete: "Rejeté",

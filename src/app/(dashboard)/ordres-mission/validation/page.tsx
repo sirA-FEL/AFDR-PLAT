@@ -256,14 +256,16 @@ export default function ValidationOrdresPage() {
                   </div>
                 )}
 
-                <div>
-                  <div className="text-sm font-medium text-gray-700 mb-2">Budget estimé</div>
-                  <div className="text-lg font-semibold text-[#2D7A32]">
-                    {selectedOrdre.budgetEstime.toLocaleString("fr-FR")} FCFA
+                {selectedOrdre.budgetEstime && (
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-2">Budget estimé</div>
+                    <div className="text-lg font-semibold text-[#2D7A32]">
+                      {selectedOrdre.budgetEstime.toLocaleString("fr-FR")} FCFA
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {selectedOrdre.documents.length > 0 && (
+                {selectedOrdre.documents && selectedOrdre.documents.length > 0 && (
                   <div>
                     <div className="text-sm font-medium text-gray-700 mb-2">Documents justificatifs</div>
                     <div className="space-y-2">

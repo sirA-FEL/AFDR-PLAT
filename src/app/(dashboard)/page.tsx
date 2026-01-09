@@ -27,13 +27,23 @@ export default function DashboardPage() {
     notificationsNonLues: 0,
   })
 
-  const [tachesEnAttente] = useState([
-    // Les données viendront de Supabase
-  ])
+  interface Tache {
+    id: string
+    titre: string
+    description: string
+    type: string
+  }
 
-  const [notificationsRecentes] = useState([
-    // Les données viendront de Supabase
-  ])
+  interface Notification {
+    id: string
+    titre: string
+    message: string
+    date: string
+    lue: boolean
+  }
+
+  const [tachesEnAttente] = useState<Tache[]>([])
+  const [notificationsRecentes] = useState<Notification[]>([])
 
   return (
     <motion.div
