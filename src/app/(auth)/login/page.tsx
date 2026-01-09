@@ -1,5 +1,9 @@
 "use client"
 
+// Empêche la pré-génération statique de la page /login lors du build Vercel.
+// La page sera rendue dynamiquement à l'exécution, avec les variables d'environnement Supabase disponibles.
+export const dynamic = "force-dynamic"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
