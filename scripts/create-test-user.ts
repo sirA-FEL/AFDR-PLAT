@@ -152,7 +152,11 @@ async function createTestUser() {
       console.log('⚠️  Clé service role non disponible.')
       console.log('\n📝 Instructions pour créer l\'utilisateur manuellement:')
       console.log('\n1. Allez dans votre dashboard Supabase:')
-      console.log('   https://supabase.com/dashboard/project/' + supabaseUrl.split('//')[1]?.split('.')[0])
+      if (supabaseUrl) {
+        console.log('   https://supabase.com/dashboard/project/' + supabaseUrl.split('//')[1]?.split('.')[0])
+      } else {
+        console.log('   https://supabase.com/dashboard')
+      }
       console.log('\n2. Allez dans Authentication > Users')
       console.log('\n3. Cliquez sur "Add User"')
       console.log('\n4. Entrez les informations suivantes:')
