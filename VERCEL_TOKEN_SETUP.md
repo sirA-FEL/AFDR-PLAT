@@ -65,3 +65,5 @@ Vous devriez voir le username correspondant à votre compte Vercel (celui qui a 
 - Ajoutez `.vercelrc` au `.gitignore` si vous l'utilisez
 - Le token a une expiration (vous pouvez le configurer lors de la création)
 
+
+

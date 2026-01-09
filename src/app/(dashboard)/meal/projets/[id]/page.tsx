@@ -9,3 +9,5 @@ export default function ProjetDetailPage({ params }: { params: { id: string } })
   );
 }
 
+
+

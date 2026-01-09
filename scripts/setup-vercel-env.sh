@@ -71,3 +71,5 @@ echo "📋 Vérifiez les variables avec: vercel env ls"
 echo "🌐 Ou dans le dashboard: https://vercel.com/dashboard"
 echo ""
 
+
+
