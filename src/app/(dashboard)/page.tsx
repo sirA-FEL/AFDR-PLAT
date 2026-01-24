@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,32 +20,61 @@ import {
   Calendar,
 } from "lucide-react"
 
+interface Notification {
+  id: string
+  titre: string
+  message: string
+  created_at: string
+  lue: boolean
+  lien?: string
+}
+
 export default function DashboardPage() {
-  // Données d'exemple (à remplacer par des données réelles depuis Supabase)
-  const [stats] = useState({
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
     ordresEnAttente: 0,
     mesTaches: 0,
     mesProjets: 0,
     notificationsNonLues: 0,
   })
+  const [notificationsRecentes, setNotificationsRecentes] = useState<Notification[]>([])
 
-  interface Tache {
-    id: string
-    titre: string
-    description: string
-    type: string
+  useEffect(() => {
+    loadDashboardData()
+  }, [])
+
+  const loadDashboardData = async () => {
+    setLoading(true)
+    try {
+      // Charger les ordres en attente
+      const { ordresMissionService } = await import("@/lib/supabase/services")
+      const ordresEnAttente = await ordresMissionService.getAll({ statut: "en_attente" })
+
+      // Charger les projets de l'utilisateur
+      const { projetsService } = await import("@/lib/supabase/services")
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const mesProjets = user ? await projetsService.getAll({ id_responsable: user.id }) : []
+
+      // Charger les notifications
+      const { notificationsService } = await import("@/lib/supabase/services")
+      const notificationsNonLues = await notificationsService.countUnread()
+      const notifications = await notificationsService.getAll({ lue: false })
+      setNotificationsRecentes(notifications.slice(0, 5))
+
+      setStats({
+        ordresEnAttente: ordresEnAttente.length,
+        mesTaches: 0, // À calculer depuis différentes sources
+        mesProjets: mesProjets.length,
+        notificationsNonLues,
+      })
+    } catch (error) {
+      console.error("Erreur:", error)
+    } finally {
+      setLoading(false)
+    }
   }
-
-  interface Notification {
-    id: string
-    titre: string
-    message: string
-    date: string
-    lue: boolean
-  }
-
-  const [tachesEnAttente] = useState<Tache[]>([])
-  const [notificationsRecentes] = useState<Notification[]>([])
 
   return (
     <motion.div
@@ -199,17 +228,22 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {notificationsRecentes.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Chargement...</p>
+              </div>
+            ) : notificationsRecentes.length === 0 ? (
               <div className="text-center py-8">
                 <Bell className="h-12 w-12 text-gray-300 mx-auto mb-2" />
                 <p className="text-gray-500">Aucune notification récente</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {notificationsRecentes.map((notif, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 p-3 rounded-lg ${
+                {notificationsRecentes.map((notif) => (
+                  <Link
+                    key={notif.id}
+                    href={notif.lien || "/notifications"}
+                    className={`flex items-start gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors ${
                       !notif.lue ? "bg-blue-50 border-l-4 border-blue-500" : "bg-gray-50"
                     }`}
                   >
@@ -220,7 +254,7 @@ export default function DashboardPage() {
                       <p className="font-medium text-gray-900">{notif.titre}</p>
                       <p className="text-sm text-gray-600">{notif.message}</p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {new Date(notif.date).toLocaleDateString("fr-FR", {
+                        {new Date(notif.created_at).toLocaleDateString("fr-FR", {
                           day: "numeric",
                           month: "short",
                           hour: "2-digit",
@@ -228,7 +262,7 @@ export default function DashboardPage() {
                         })}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

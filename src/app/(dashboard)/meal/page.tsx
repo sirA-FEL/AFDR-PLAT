@@ -1,10 +1,124 @@
-export default function Page() {
+"use client"
+
+export const dynamic = "force-dynamic"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { motion } from "framer-motion"
+import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
+import { TrendingUp, Plus, DollarSign, List, ArrowRight } from "lucide-react"
+
+export default function MealPage() {
+  const [stats, setStats] = useState({
+    totalProjets: 0,
+    budgetTotal: 0,
+    activites: 0,
+  })
+
+  useEffect(() => {
+    loadStats()
+  }, [])
+
+  const loadStats = async () => {
+    try {
+      const { projetsService } = await import("@/lib/supabase/services")
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+
+      const projets = await projetsService.getAll()
+      const totalBudget = projets.reduce((sum, p) => sum + (p.budget_total || 0), 0)
+
+      const { data: activites } = await supabase
+        .from("activites_projet")
+        .select("id", { count: "exact", head: true })
+
+      setStats({
+        totalProjets: projets.length,
+        budgetTotal: totalBudget,
+        activites: activites?.length || 0,
+      })
+    } catch (error) {
+      console.error("Erreur:", error)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">meal</h1>
-        <p className="mt-4 text-gray-600">Page en cours de développement</p>
+    <motion.div
+      initial="initial"
+      animate="animate"
+      variants={slideUp}
+      transition={transitionNormal}
+      className="p-6 space-y-6"
+    >
+      <div className="bg-gradient-to-r from-[#2D7A32] to-[#4CAF50] rounded-lg p-8 text-white">
+        <h1 className="text-4xl font-bold mb-2">MEAL</h1>
+        <p className="text-white/90 text-lg">Monitoring, Evaluation, Accountability & Learning</p>
       </div>
-    </div>
-  );
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Projets actifs</p>
+                <p className="text-4xl font-bold text-[#2D7A32]">{stats.totalProjets}</p>
+              </div>
+              <TrendingUp className="h-12 w-12 text-[#2D7A32]" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Budget total</p>
+                <p className="text-4xl font-bold text-[#2D7A32]">
+                  {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(stats.budgetTotal)}
+                </p>
+              </div>
+              <DollarSign className="h-12 w-12 text-[#2D7A32]" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Activités</p>
+                <p className="text-4xl font-bold text-[#2D7A32]">{stats.activites}</p>
+              </div>
+              <List className="h-12 w-12 text-[#2D7A32]" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions rapides</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link href="/meal/projets/nouveau">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center gap-2">
+                <Plus className="h-6 w-6" />
+                <span>Nouveau projet</span>
+              </Button>
+            </Link>
+            <Link href="/meal/projets">
+              <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center gap-2">
+                <TrendingUp className="h-6 w-6" />
+                <span>Voir tous les projets</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
 }

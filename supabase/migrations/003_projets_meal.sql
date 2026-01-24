@@ -66,3 +66,4 @@ CREATE TRIGGER update_activites_projet_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 
+
