@@ -117,7 +117,7 @@ export const tdrService = {
   // Basculer le statut favori
   async toggleFavori(id: string) {
     const supabase = createClient()
-    const { data: tdr } = await this.getById(id)
+    const tdr = await this.getById(id)
     return this.update(id, { favori: !tdr.favori })
   },
 

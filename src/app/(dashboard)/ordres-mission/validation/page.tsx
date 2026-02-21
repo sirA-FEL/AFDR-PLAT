@@ -2,16 +2,16 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
-import { CheckCircle, XCircle, Eye, FileText, User, Calendar, MapPin } from "lucide-react"
+import { CheckCircle, XCircle, Eye, FileText, User, Calendar, MapPin, PenLine } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { ordresMissionService, type OrdreMission } from "@/lib/supabase/services"
+import { ordresMissionService } from "@/lib/supabase/services"
+import { SignatureCanvas, type SignatureCanvasRef } from "@/components/ui/signature-canvas"
 
 interface OrdreMissionDisplay {
   id: string
@@ -37,6 +37,10 @@ export default function ValidationOrdresPage() {
   const [loading, setLoading] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [ordresEnAttente, setOrdresEnAttente] = useState<OrdreMissionDisplay[]>([])
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [commentaireApprove, setCommentaireApprove] = useState("")
+  const signatureRef = useRef<SignatureCanvasRef>(null)
+  const [loadingPdf, setLoadingPdf] = useState<string | null>(null)
 
   useEffect(() => {
     loadOrdresEnAttente()
@@ -53,7 +57,7 @@ export default function ValidationOrdresPage() {
         return
       }
 
-      const ordres = await ordresMissionService.getPendingValidation(user.id)
+      const ordres = await ordresMissionService.getPendingValidation()
 
       const ordresAvecProfils = await Promise.all(
         ordres.map(async (ordre) => {
@@ -61,8 +65,9 @@ export default function ValidationOrdresPage() {
             .from("profils")
             .select("nom, prenom, email, departement")
             .eq("id", ordre.id_demandeur)
-            .single()
+            .maybeSingle()
 
+          const nomComplet = [profil?.prenom, profil?.nom].filter(Boolean).join(" ") || "Inconnu"
           return {
             id: ordre.id,
             destination: ordre.destination,
@@ -72,9 +77,9 @@ export default function ValidationOrdresPage() {
             activitesPrevues: ordre.activites_prevues,
             budgetEstime: ordre.budget_estime,
             demandeur: {
-              nom: profil?.nom || "Inconnu",
-              email: profil?.email || "",
-              departement: profil?.departement || "",
+              nom: nomComplet,
+              email: profil?.email ?? "",
+              departement: profil?.departement ?? "",
             },
             dateCreation: ordre.date_creation,
             documents: [],
@@ -90,26 +95,53 @@ export default function ValidationOrdresPage() {
     }
   }
 
-  const handleApprouver = async (ordre: OrdreMissionDisplay) => {
-    if (!commentaire.trim() && (ordre.budgetEstime || 0) > 100000) {
-      alert("Un commentaire est requis pour les ordres de mission avec budget > 100 000 FCFA")
+  const handleOuvrirModalApprouver = (ordre: OrdreMissionDisplay) => {
+    if ((ordre.budgetEstime || 0) > 100000 && !commentaire.trim()) {
+      alert("Un commentaire est recommandé pour les ordres avec budget > 100 000 FCFA")
+    }
+    setCommentaireApprove(commentaire)
+    setShowApproveModal(true)
+  }
+
+  const handleConfirmApprove = async () => {
+    if (!selectedOrdre) return
+    const blob = await signatureRef.current?.getBlob()
+    if (!blob || signatureRef.current?.isEmpty()) {
+      alert("Veuillez signer dans la zone ci-dessous avant de confirmer.")
       return
     }
-
     setLoading(true)
     try {
-      // Approuver en tant que chef (première validation)
-      await ordresMissionService.approve(ordre.id, "chef", commentaire || undefined)
-
-      alert("Ordre de mission approuvé. Notification envoyée à Finance et au demandeur.")
+      await ordresMissionService.approveWithSignature(
+        selectedOrdre.id,
+        blob,
+        commentaireApprove.trim() || undefined
+      )
+      setShowApproveModal(false)
+      setCommentaireApprove("")
+      signatureRef.current?.clear()
       setSelectedOrdre(null)
       setCommentaire("")
       await loadOrdresEnAttente()
+      alert("Ordre de mission approuvé avec succès.")
     } catch (error: any) {
       console.error("Erreur:", error)
       alert(error.message || "Erreur lors de l'approbation")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleVoirPdf = async (ordreId: string) => {
+    setLoadingPdf(ordreId)
+    try {
+      const url = await ordresMissionService.getSignedPdfUrl(ordreId)
+      window.open(url, "_blank")
+    } catch (e: any) {
+      console.error(e)
+      alert(e.message || "Impossible d'ouvrir le PDF")
+    } finally {
+      setLoadingPdf(null)
     }
   }
 
@@ -203,11 +235,23 @@ export default function ValidationOrdresPage() {
         <div className="lg:col-span-2">
           {selectedOrdre ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Détails de l'ordre de mission</CardTitle>
-                <CardDescription>
-                  Examinez les informations avant de valider ou rejeter
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle>Détails de l'ordre de mission</CardTitle>
+                  <CardDescription>
+                    Examinez les informations avant de valider ou rejeter
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleVoirPdf(selectedOrdre.id)}
+                  disabled={loadingPdf === selectedOrdre.id}
+                  className="flex items-center gap-2 shrink-0"
+                >
+                  <FileText className="h-4 w-4" />
+                  {loadingPdf === selectedOrdre.id ? "Ouverture..." : "Voir le PDF"}
+                </Button>
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Informations demandeur */}
@@ -327,12 +371,12 @@ export default function ValidationOrdresPage() {
                     {loading ? "Rejet en cours..." : "Rejeter"}
                   </Button>
                   <Button
-                    onClick={() => handleApprouver(selectedOrdre)}
+                    onClick={() => handleOuvrirModalApprouver(selectedOrdre)}
                     disabled={loading}
                     className="flex items-center gap-2"
                   >
                     <CheckCircle className="h-4 w-4" />
-                    {loading ? "Validation..." : "Approuver"}
+                    Approuver avec signature
                   </Button>
                 </div>
               </CardContent>
@@ -347,6 +391,63 @@ export default function ValidationOrdresPage() {
           )}
         </div>
       </div>
+
+      {/* Modal Approuver avec signature */}
+      {showApproveModal && selectedOrdre && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-[#2D7A32]">Approuver l'ordre de mission</h3>
+              <p className="text-sm text-gray-600">
+                Signez ci-dessous pour valider l'ordre de mission de {selectedOrdre.demandeur.nom} ({selectedOrdre.destination}).
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Commentaire (optionnel)</label>
+                <textarea
+                  value={commentaireApprove}
+                  onChange={(e) => setCommentaireApprove(e.target.value)}
+                  placeholder="Commentaire éventuel..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2D7A32] resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Signature</label>
+                <SignatureCanvas ref={signatureRef} width={400} height={160} className="w-full" />
+                <p className="text-xs text-gray-500 mt-1">Dessinez votre signature dans la zone ci-dessus</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    signatureRef.current?.clear()
+                    setShowApproveModal(false)
+                    setCommentaireApprove("")
+                  }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => signatureRef.current?.clear()}
+                  className="flex items-center gap-2"
+                >
+                  <PenLine className="h-4 w-4" />
+                  Effacer
+                </Button>
+                <Button
+                  onClick={handleConfirmApprove}
+                  disabled={loading}
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  {loading ? "Validation..." : "Confirmer la validation"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }

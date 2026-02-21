@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
-import { FileText, Search, Filter, Download, Edit, Trash2, Eye } from "lucide-react"
+import { FileText, Search, Filter, Download, Edit, Trash2, Eye, Send } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { ordresMissionService, type OrdreMission } from "@/lib/supabase/services"
 
@@ -32,6 +32,8 @@ export default function MesOrdresPage() {
   const [filterPeriode, setFilterPeriode] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [ordres, setOrdres] = useState<OrdreMissionDisplay[]>([])
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadOrdres()
@@ -67,8 +69,9 @@ export default function MesOrdresPage() {
       }))
 
       setOrdres(transformedData)
-    } catch (error: any) {
-      console.error("Erreur lors du chargement:", error)
+    } catch (error: unknown) {
+      const err = error as { message?: string; code?: string }
+      console.error("Erreur lors du chargement:", err?.message ?? err?.code ?? String(error))
     } finally {
       setLoading(false)
     }
@@ -116,6 +119,21 @@ export default function MesOrdresPage() {
     )
   }
 
+  const handleSoumettre = async (ordre: OrdreMissionDisplay) => {
+    if (ordre.statut !== "brouillon") return
+    setSubmittingId(ordre.id)
+    try {
+      await ordresMissionService.submit(ordre.id)
+      await loadOrdres()
+      alert("Ordre de mission soumis. Il est en attente de validation.")
+    } catch (err: unknown) {
+      const e = err as { message?: string }
+      alert(e?.message ?? "Erreur lors de la soumission.")
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm("Êtes-vous sûr de vouloir supprimer cet ordre de mission ?")) {
       return
@@ -131,12 +149,33 @@ export default function MesOrdresPage() {
     }
   }
 
-  const handleDownloadPDF = (ordre: OrdreMissionDisplay) => {
-    if (ordre.pdfUrl) {
-      window.open(ordre.pdfUrl, "_blank")
-    } else {
-      // TODO: Générer le PDF si pas encore créé
-      console.log("Génération PDF pour:", ordre.id)
+  const handleDownloadPDF = async (ordre: OrdreMissionDisplay) => {
+    setGeneratingPdfId(ordre.id)
+    try {
+      if (ordre.pdfUrl) {
+        const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
+        window.open(signedUrl, "_blank")
+        setGeneratingPdfId(null)
+        return
+      }
+      const ordreFull = await ordresMissionService.getById(ordre.id)
+      const { generateOrdreMissionPdf } = await import("@/lib/ordres-mission/generate-pdf")
+      const blob = await generateOrdreMissionPdf(ordreFull)
+      const pdfPath = await ordresMissionService.uploadPdf(ordre.id, blob)
+      await ordresMissionService.setPdfUrl(ordre.id, pdfPath)
+      const idx = ordres.findIndex((o) => o.id === ordre.id)
+      if (idx >= 0) {
+        const next = [...ordres]
+        next[idx] = { ...next[idx], pdfUrl: pdfPath }
+        setOrdres(next)
+      }
+      const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
+      window.open(signedUrl, "_blank")
+    } catch (err) {
+      console.error(err)
+      alert("Impossible de générer le PDF.")
+    } finally {
+      setGeneratingPdfId(null)
     }
   }
 
@@ -271,11 +310,43 @@ export default function MesOrdresPage() {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" title="Voir les détails">
-                            <Eye className="h-4 w-4" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={ordre.pdfUrl ? "Télécharger le PDF" : "Générer le PDF"}
+                            onClick={() => handleDownloadPDF(ordre)}
+                            disabled={generatingPdfId === ordre.id}
+                          >
+                            {generatingPdfId === ordre.id ? (
+                              <span className="text-xs">...</span>
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
                           </Button>
+                          <Link href={`/ordres-mission/${ordre.id}`}>
+                            <Button variant="ghost" size="sm" title="Voir les détails">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
                           {ordre.statut === "brouillon" && (
                             <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                title="Soumettre pour validation"
+                                onClick={() => handleSoumettre(ordre)}
+                                disabled={submittingId === ordre.id}
+                                className="flex items-center gap-1"
+                              >
+                                {submittingId === ordre.id ? (
+                                  <span className="text-xs">...</span>
+                                ) : (
+                                  <>
+                                    <Send className="h-3.5 w-3.5" />
+                                    Soumettre
+                                  </>
+                                )}
+                              </Button>
                               <Link href={`/ordres-mission/nouveau?edit=${ordre.id}`}>
                                 <Button variant="ghost" size="sm" title="Modifier">
                                   <Edit className="h-4 w-4" />
@@ -290,16 +361,6 @@ export default function MesOrdresPage() {
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
                             </>
-                          )}
-                          {ordre.statut === "approuve" && ordre.pdfUrl && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Télécharger le PDF"
-                              onClick={() => handleDownloadPDF(ordre)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
                           )}
                         </div>
                       </td>

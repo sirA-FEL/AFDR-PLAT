@@ -180,6 +180,6 @@ export const profilService = {
       .eq("id_utilisateur", targetUserId)
 
     if (error) throw error
-    return data.map((r) => r.role) as string[]
+    return data.map((r: any) => r.role) as string[]
   },
 }

@@ -249,6 +249,6 @@ export const depensesService = {
 
     if (error) throw error
 
-    return data.reduce((total, depense) => total + (depense.montant || 0), 0)
+    return data.reduce((total: number, depense: any) => total + (depense.montant || 0), 0)
   },
 }

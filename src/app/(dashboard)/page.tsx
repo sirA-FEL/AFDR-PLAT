@@ -38,6 +38,7 @@ export default function DashboardPage() {
     notificationsNonLues: 0,
   })
   const [notificationsRecentes, setNotificationsRecentes] = useState<Notification[]>([])
+  const [tachesEnAttente, setTachesEnAttente] = useState<any[]>([])
 
   useEffect(() => {
     loadDashboardData()
@@ -114,7 +115,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Mes tâches en attente */}
+        {/* Notifications */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -150,7 +151,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Notifications */}
+        {/* Mes tâches en attente */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -247,7 +248,7 @@ export default function DashboardPage() {
                       !notif.lue ? "bg-blue-50 border-l-4 border-blue-500" : "bg-gray-50"
                     }`}
                   >
-                    <div className="h-10 w-10 bg-[#2D7A32] rounded-full flex items-center justify-center text-white flex-shrink-0">
+                    <div className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white flex-shrink-0">
                       <Bell className="h-5 w-5" />
                     </div>
                     <div className="flex-1">

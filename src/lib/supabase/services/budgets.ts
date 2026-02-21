@@ -129,7 +129,7 @@ export const budgetsService = {
     if (error) throw error
 
     const totals = data.reduce(
-      (acc, ligne) => ({
+      (acc: { alloue: number; engage: number; paye: number }, ligne: any) => ({
         alloue: acc.alloue + (ligne.montant_alloue || 0),
         engage: acc.engage + (ligne.montant_engage || 0),
         paye: acc.paye + (ligne.montant_paye || 0),
@@ -158,7 +158,7 @@ export const budgetsService = {
     if (error) throw error
 
     const totals = data.reduce(
-      (acc, ligne) => ({
+      (acc: { alloue: number; engage: number; paye: number }, ligne: any) => ({
         alloue: acc.alloue + (ligne.montant_alloue || 0),
         engage: acc.engage + (ligne.montant_engage || 0),
         paye: acc.paye + (ligne.montant_paye || 0),

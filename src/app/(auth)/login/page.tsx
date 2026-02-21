@@ -4,8 +4,9 @@
 // La page sera rendue dynamiquement à l'exécution, avec les variables d'environnement Supabase disponibles.
 export const dynamic = "force-dynamic"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const resetSuccess = searchParams.get("reset") === "success"
   
   // Créer le client Supabase uniquement côté client (après le montage)
   const supabase = useMemo(() => {
@@ -122,7 +125,7 @@ export default function LoginPage() {
             >
               <h2 className="text-xl font-semibold text-[#212121]">Connexion</h2>
               <p className="text-sm text-[#757575] mt-1">
-                Connectez-vous à votre compte
+                Tous les utilisateurs (niveau 1, 2 et 3) : connectez-vous avec votre email et mot de passe
               </p>
             </motion.div>
           </CardHeader>
@@ -134,6 +137,15 @@ export default function LoginPage() {
               onSubmit={handleLogin}
               className="space-y-5"
             >
+              {resetSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-md bg-[#2D7A32]/10 border border-[#2D7A32]/20 p-3 text-sm text-[#1B5E20]"
+                >
+                  Votre mot de passe a été réinitialisé. Vous pouvez vous connecter.
+                </motion.div>
+              )}
               {error && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -196,12 +208,12 @@ export default function LoginPage() {
                 transition={{ delay: 0.9 }}
                 className="text-center text-sm"
               >
-                <a
-                  href="#"
+                <Link
+                  href="/forgot-password"
                   className="text-[#2D7A32] hover:text-[#1B5E20] hover:underline font-medium"
                 >
                   Mot de passe oublié ?
-                </a>
+                </Link>
               </motion.div>
             </motion.form>
           </CardContent>

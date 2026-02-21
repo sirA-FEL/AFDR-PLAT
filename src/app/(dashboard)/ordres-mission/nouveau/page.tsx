@@ -51,9 +51,17 @@ export default function NouvelOrdreMissionPage() {
 
       // Redirection vers la liste
       router.push("/ordres-mission/mes-ordres")
-    } catch (error: any) {
-      console.error("Erreur lors de la création:", error)
-      alert(error.message || "Erreur lors de la création de l'ordre de mission")
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : (error && typeof error === "object" && "message" in error)
+            ? String((error as { message: unknown }).message)
+            : typeof error === "string"
+              ? error
+              : "Erreur lors de la création de l'ordre de mission"
+      console.error("Erreur lors de la création:", message, error)
+      alert(message)
     } finally {
       setLoading(false)
     }

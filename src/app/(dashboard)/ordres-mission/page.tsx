@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
-import { FileText, Plus, Search, Filter, Download } from "lucide-react"
+import { FileText, Plus, Search, Filter, Download, Send } from "lucide-react"
 
-interface OrdreMission {
+interface OrdreMissionRow {
   id: string
   destination: string
   dateDebut: string
@@ -19,13 +19,16 @@ interface OrdreMission {
   statut: "brouillon" | "en_attente" | "approuve" | "rejete" | "en_cours" | "termine"
   demandeur: string
   dateCreation: string
+  pdfUrl?: string
 }
 
 export default function OrdresMissionPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatut, setFilterStatut] = useState<string>("all")
   const [loading, setLoading] = useState(true)
-  const [ordres, setOrdres] = useState<OrdreMission[]>([])
+  const [ordres, setOrdres] = useState<OrdreMissionRow[]>([])
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadOrdres()
@@ -42,14 +45,14 @@ export default function OrdresMissionPage() {
         statut: filterStatut !== "all" ? filterStatut as any : undefined,
       })
 
-      // Charger les profils des demandeurs
+      // Charger les profils des demandeurs (maybeSingle : pas d'erreur si RLS masque le profil)
       const ordresAvecProfils = await Promise.all(
         data.map(async (o) => {
           const { data: profil } = await supabase
             .from("profils")
             .select("nom, prenom")
             .eq("id", o.id_demandeur)
-            .single()
+            .maybeSingle()
 
           return {
             id: o.id,
@@ -60,13 +63,15 @@ export default function OrdresMissionPage() {
             statut: o.statut,
             demandeur: profil ? `${profil.prenom} ${profil.nom}` : "Inconnu",
             dateCreation: o.date_creation,
+            pdfUrl: o.pdf_url,
           }
         })
       )
 
       setOrdres(ordresAvecProfils)
-    } catch (error: any) {
-      console.error("Erreur:", error)
+    } catch (error: unknown) {
+      const err = error as { message?: string; code?: string }
+      console.error("Erreur loadOrdres:", err?.message ?? err?.code ?? String(error))
     } finally {
       setLoading(false)
     }
@@ -81,8 +86,57 @@ export default function OrdresMissionPage() {
     return matchesSearch && matchesFilter
   })
 
-  const getStatutBadge = (statut: OrdreMission["statut"]) => {
-    const styles: Record<OrdreMission["statut"], string> = {
+  const handleDownloadPDF = async (ordre: OrdreMissionRow) => {
+    setGeneratingPdfId(ordre.id)
+    try {
+      const { ordresMissionService } = await import("@/lib/supabase/services")
+      if (ordre.pdfUrl) {
+        const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
+        window.open(signedUrl, "_blank")
+        setGeneratingPdfId(null)
+        return
+      }
+      const { generateOrdreMissionPdf } = await import("@/lib/ordres-mission/generate-pdf")
+      const ordreFull = await ordresMissionService.getById(ordre.id)
+      const blob = await generateOrdreMissionPdf(ordreFull, { demandeurNom: ordre.demandeur })
+      const pdfPath = await ordresMissionService.uploadPdf(ordre.id, blob)
+      await ordresMissionService.setPdfUrl(ordre.id, pdfPath)
+      const idx = ordres.findIndex((o) => o.id === ordre.id)
+      if (idx >= 0) {
+        const next = [...ordres]
+        next[idx] = { ...next[idx], pdfUrl: pdfPath }
+        setOrdres(next)
+      }
+      const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
+      window.open(signedUrl, "_blank")
+    } catch (err: unknown) {
+      const e = err as { message?: string; code?: string; error?: string }
+      const msg = e?.message ?? e?.code ?? e?.error ?? String(err)
+      console.error("Erreur génération PDF:", msg, err)
+      alert(`Impossible de générer le PDF. ${msg ? `(${msg})` : ""}`)
+    } finally {
+      setGeneratingPdfId(null)
+    }
+  }
+
+  const handleSoumettre = async (ordre: OrdreMissionRow) => {
+    if (ordre.statut !== "brouillon") return
+    setSubmittingId(ordre.id)
+    try {
+      const { ordresMissionService } = await import("@/lib/supabase/services")
+      await ordresMissionService.submit(ordre.id)
+      await loadOrdres()
+    } catch (err: unknown) {
+      const e = err as { message?: string }
+      console.error("Erreur soumission:", e?.message ?? err)
+      alert(e?.message ?? "Erreur lors de la soumission")
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
+  const getStatutBadge = (statut: OrdreMissionRow["statut"]) => {
+    const styles: Record<OrdreMissionRow["statut"], string> = {
       brouillon: "bg-gray-100 text-gray-800 border-gray-300",
       en_attente: "bg-yellow-100 text-yellow-800 border-yellow-300",
       approuve: "bg-green-100 text-green-800 border-green-300",
@@ -90,7 +144,7 @@ export default function OrdresMissionPage() {
       en_cours: "bg-blue-100 text-blue-800 border-blue-300",
       termine: "bg-purple-100 text-purple-800 border-purple-300",
     }
-    const labels: Record<OrdreMission["statut"], string> = {
+    const labels: Record<OrdreMissionRow["statut"], string> = {
       brouillon: "Brouillon",
       en_attente: "En attente",
       approuve: "Approuvé",
@@ -205,41 +259,77 @@ export default function OrdresMissionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrdres.map((ordre) => (
-                    <tr
-                      key={ordre.id}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                        <div className="font-medium text-gray-900">{ordre.destination}</div>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">
-                        <div>{new Date(ordre.dateDebut).toLocaleDateString("fr-FR")}</div>
-                        <div className="text-gray-400">
-                          au {new Date(ordre.dateFin).toLocaleDateString("fr-FR")}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="text-sm text-gray-700 line-clamp-2 max-w-xs">
-                          {ordre.motif}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-sm text-gray-600">{ordre.demandeur}</td>
-                      <td className="py-4 px-4">{getStatutBadge(ordre.statut)}</td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm">
-                            Voir
-                          </Button>
-                          {ordre.statut === "en_attente" && (
-                            <Button variant="outline" size="sm">
-                              Modifier
+                  {filteredOrdres.map((ordre) => {
+                    return (
+                      <tr
+                        key={ordre.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="py-4 px-4">
+                          <div className="font-medium text-gray-900">{ordre.destination}</div>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-600">
+                          <div>{new Date(ordre.dateDebut).toLocaleDateString("fr-FR")}</div>
+                          <div className="text-gray-400">
+                            au {new Date(ordre.dateFin).toLocaleDateString("fr-FR")}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="text-sm text-gray-700 line-clamp-2 max-w-xs">
+                            {ordre.motif}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-600">{ordre.demandeur}</td>
+                        <td className="py-4 px-4">{getStatutBadge(ordre.statut)}</td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title={ordre.pdfUrl ? "Télécharger le PDF" : "Générer le PDF"}
+                              onClick={() => handleDownloadPDF(ordre)}
+                              disabled={generatingPdfId === ordre.id}
+                            >
+                              {generatingPdfId === ordre.id ? (
+                                <span className="text-xs">...</span>
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
                             </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <Link href={`/ordres-mission/${ordre.id}`}>
+                              <Button variant="ghost" size="sm" title="Voir le détail">
+                                Voir
+                              </Button>
+                            </Link>
+                            {ordre.statut === "brouillon" && (
+                              <>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  title="Soumettre pour validation"
+                                  onClick={() => handleSoumettre(ordre)}
+                                  disabled={submittingId === ordre.id}
+                                  className="flex items-center gap-1"
+                                >
+                                  {submittingId === ordre.id ? (
+                                    <span className="text-xs">...</span>
+                                  ) : (
+                                    <>
+                                      <Send className="h-3.5 w-3.5" />
+                                      Soumettre
+                                    </>
+                                  )}
+                                </Button>
+                                <Link href={`/ordres-mission/nouveau?edit=${ordre.id}`}>
+                                  <Button variant="outline" size="sm">Modifier</Button>
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
