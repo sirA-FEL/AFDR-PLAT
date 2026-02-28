@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
-import { ArrowLeft, Plus, GripVertical } from "lucide-react"
+import { hasRole } from "@/lib/auth/niveau-acces"
+import { createClient } from "@/lib/supabase/client"
+import { ArrowLeft, Plus, GripVertical, Calendar } from "lucide-react"
 
 interface Activite {
   id: string
@@ -25,11 +27,39 @@ interface Activite {
   ordre: number
 }
 
+const initialForm = {
+  nom: "",
+  description: "",
+  dateDebut: "",
+  dateFin: "",
+  budgetAlloue: "",
+}
+
 export default function ActivitesPage() {
   const params = useParams()
+  const [roles, setRoles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activites, setActivites] = useState<Activite[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formData, setFormData] = useState(initialForm)
+
+  const canCreateActivities = hasRole(roles, ["MEAL", "PM", "DIR"])
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user?.id) {
+        setRoles([])
+        return
+      }
+      supabase
+        .from("roles_utilisateurs")
+        .select("role")
+        .eq("id_utilisateur", user.id)
+        .then(({ data }) => setRoles((data ?? []).map((r: { role: string }) => r.role)))
+    })
+  }, [])
 
   useEffect(() => {
     if (params.id) {
@@ -58,6 +88,43 @@ export default function ActivitesPage() {
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.nom.trim()) {
+      alert("Le nom de l'activité est obligatoire")
+      return
+    }
+    if (formData.dateDebut && formData.dateFin && new Date(formData.dateDebut) > new Date(formData.dateFin)) {
+      alert("La date de fin doit être postérieure ou égale à la date de début")
+      return
+    }
+    const budget = formData.budgetAlloue ? parseFloat(formData.budgetAlloue) : 0
+    if (formData.budgetAlloue && (isNaN(budget) || budget < 0)) {
+      alert("Le budget alloué doit être un nombre positif")
+      return
+    }
+    setSubmitting(true)
+    try {
+      const { activitesProjetService } = await import("@/lib/supabase/services")
+      await activitesProjetService.create({
+        id_projet: params.id as string,
+        nom: formData.nom.trim(),
+        description: formData.description.trim() || undefined,
+        date_debut: formData.dateDebut || undefined,
+        date_fin: formData.dateFin || undefined,
+        budget_alloue: isNaN(budget) ? undefined : budget,
+      })
+      setFormData(initialForm)
+      setShowForm(false)
+      await loadActivites()
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message || "Erreur lors de la création de l'activité")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <motion.div
       initial="initial"
@@ -67,22 +134,31 @@ export default function ActivitesPage() {
       className="p-6 space-y-6"
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href={`/meal/projets/${params.id}`}>
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Retour
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-[#2D7A32]">Activités</h1>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-4">
+            <Link href={`/meal/projets/${params.id}`}>
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Retour
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold text-[#2D7A32]">Activités</h1>
+          </div>
+          {!canCreateActivities && (
+            <p className="text-sm text-gray-500">
+              Vous n'avez pas les autorisations nécessaires.
+            </p>
+          )}
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nouvelle activité
-        </Button>
+        {canCreateActivities && (
+          <Button onClick={() => setShowForm(!showForm)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nouvelle activité
+          </Button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && canCreateActivities && (
         <Card>
           <CardHeader>
             <CardTitle>Nouvelle activité</CardTitle>
@@ -131,7 +207,7 @@ export default function ActivitesPage() {
                       </div>
                       <div>
                         <p className="text-gray-500">Budget alloué</p>
-                        <p className="font-medium">{activite.budget_alloue.toLocaleString()} €</p>
+                        <p className="font-medium">{Number(activite.budget_alloue ?? 0).toLocaleString("fr-FR")} FCFA</p>
                       </div>
                     </div>
                   </div>

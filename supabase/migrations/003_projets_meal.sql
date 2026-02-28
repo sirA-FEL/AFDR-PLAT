@@ -1,6 +1,6 @@
 -- Table des projets MEAL
 CREATE TABLE IF NOT EXISTS projets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom TEXT NOT NULL,
   code_projet TEXT UNIQUE NOT NULL,
   objectifs TEXT,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS projets (
 
 -- Table des activités de projet
 CREATE TABLE IF NOT EXISTS activites_projet (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_projet UUID NOT NULL REFERENCES projets(id) ON DELETE CASCADE,
   nom TEXT NOT NULL,
   description TEXT,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS activites_projet (
 
 -- Table des indicateurs de projet
 CREATE TABLE IF NOT EXISTS indicateurs_projet (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_projet UUID NOT NULL REFERENCES projets(id) ON DELETE CASCADE,
   id_activite UUID REFERENCES activites_projet(id) ON DELETE CASCADE,
   nom TEXT NOT NULL,
@@ -54,12 +54,14 @@ CREATE INDEX IF NOT EXISTS idx_activites_ordre ON activites_projet(id_projet, or
 CREATE INDEX IF NOT EXISTS idx_indicateurs_projet ON indicateurs_projet(id_projet);
 CREATE INDEX IF NOT EXISTS idx_indicateurs_activite ON indicateurs_projet(id_activite);
 
--- Trigger pour updated_at
+-- Triggers pour updated_at (idempotents)
+DROP TRIGGER IF EXISTS update_projets_updated_at ON projets;
 CREATE TRIGGER update_projets_updated_at
   BEFORE UPDATE ON projets
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_activites_projet_updated_at ON activites_projet;
 CREATE TRIGGER update_activites_projet_updated_at
   BEFORE UPDATE ON activites_projet
   FOR EACH ROW

@@ -12,7 +12,8 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { scaleIn, slideUp, transitionNormal, transitionBounce } from "@/lib/utils/motion-variants"
+import { scaleIn, transitionBounce } from "@/lib/utils/motion-variants"
+import { LogoAfdr } from "@/components/ui/logo-afdr"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -92,18 +93,12 @@ export default function LoginPage() {
         <Card className="shadow-xl border-[#2D7A32]/30">
           <CardHeader className="text-center space-y-4 pb-8">
             <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
               transition={transitionBounce}
-              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#2D7A32] to-[#1B5E20] shadow-lg"
+              className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-lg ring-2 ring-[#2D7A32]/20"
             >
-              <motion.span
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-                className="text-2xl font-bold text-white"
-              >
-                A
-              </motion.span>
+              <LogoAfdr variant="card" className="h-full w-full object-contain p-1" />
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}

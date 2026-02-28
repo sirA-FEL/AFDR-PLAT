@@ -125,7 +125,7 @@ export default function MesOrdresPage() {
     try {
       await ordresMissionService.submit(ordre.id)
       await loadOrdres()
-      alert("Ordre de mission soumis. Il est en attente de validation.")
+      alert("Ordre soumis. Il est en attente de validation par la Direction / MEAL. Les validateurs peuvent traiter la demande depuis la page Validation des ordres.")
     } catch (err: unknown) {
       const e = err as { message?: string }
       alert(e?.message ?? "Erreur lors de la soumission.")

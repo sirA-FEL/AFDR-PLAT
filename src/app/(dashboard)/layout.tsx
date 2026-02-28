@@ -22,15 +22,22 @@ import {
   X,
   ClipboardList,
   FileCheck,
+  FolderOpen,
+  ClipboardCheck,
+  Car,
 } from "lucide-react"
+import { LogoAfdr } from "@/components/ui/logo-afdr"
+import { isPartenaire, hasRole } from "@/lib/auth/niveau-acces"
 
 const navigation = [
   { name: "Tableau de bord", href: "/", icon: LayoutDashboard },
   { name: "Ordres de Mission", href: "/ordres-mission", icon: FileText },
+  { name: "Validation des ordres", href: "/ordres-mission/validation", icon: ClipboardCheck, roles: ["DIR", "MEAL"] as const },
   { name: "Projets MEAL", href: "/meal/projets", icon: TrendingUp },
   { name: "GRH", href: "/grh/employes", icon: Users },
   { name: "Finance", href: "/finance", icon: DollarSign },
   { name: "Logistique", href: "/logistique", icon: Package },
+  { name: "Parc automobile", href: "/logistique/vehicules", icon: Car, roles: ["LOG", "DIR"] as const },
   { name: "TDR", href: "/tdr", icon: ClipboardList },
   { name: "Rapportage", href: "/rapportage", icon: FileCheck },
   { name: "Notifications", href: "/notifications", icon: Bell },
@@ -51,6 +58,16 @@ export default function DashboardLayout({
     loadUser()
   }, [])
 
+  useEffect(() => {
+    if (!loading && user?.roles && isPartenaire(user.roles)) {
+      const inPartenaire = pathname === "/partenaire" || pathname?.startsWith("/partenaire/")
+      const inProfil = pathname === "/profil"
+      if (!inPartenaire && !inProfil) {
+        router.replace("/partenaire")
+      }
+    }
+  }, [loading, user?.roles, pathname, router])
+
   const loadUser = async () => {
     try {
       const supabase = createClient()
@@ -64,15 +81,15 @@ export default function DashboardLayout({
       } = await supabase.auth.getUser()
 
       if (authUser) {
-        const { data: profil } = await supabase
-          .from("profils")
-          .select("nom, prenom, email")
-          .eq("id", authUser.id)
-          .single()
-
+        const [profilRes, rolesRes] = await Promise.all([
+          supabase.from("profils").select("nom, prenom, email").eq("id", authUser.id).single(),
+          supabase.from("roles_utilisateurs").select("role").eq("id_utilisateur", authUser.id),
+        ])
+        const roles = (rolesRes.data ?? []).map((r: { role: string }) => r.role)
         setUser({
           ...authUser,
-          profil: profil || { nom: "", prenom: "", email: authUser.email },
+          profil: profilRes.data || { nom: "", prenom: "", email: authUser.email },
+          roles,
         })
       }
     } catch (error) {
@@ -116,9 +133,9 @@ export default function DashboardLayout({
         <div className="flex flex-col h-full">
           {/* Logo/Header */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#2D7A32] rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">AFDR</span>
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center bg-white border border-gray-200 shrink-0">
+                <LogoAfdr size={36} variant="icon" className="object-contain" />
               </div>
               <span className="font-bold text-lg text-gray-900">AFDR Platform</span>
             </Link>
@@ -132,30 +149,42 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
-              const Icon = item.icon
-
-              return (
+            {user?.roles && isPartenaire(user.roles) ? (
+              <>
                 <Link
-                  key={item.href}
-                  href={item.href}
+                  href="/partenaire"
                   onClick={() => setSidebarOpen(false)}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg
-                    transition-colors duration-200
-                    ${
-                      isActive
-                        ? "bg-[#2D7A32] text-white"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }
-                  `}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                    pathname === "/partenaire" || pathname?.startsWith("/partenaire/")
+                      ? "bg-[#2D7A32] text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium">{item.name}</span>
+                  <FolderOpen className="h-5 w-5" />
+                  <span className="font-medium">Projets partagés</span>
                 </Link>
-              )
-            })}
+              </>
+            ) : (
+              navigation
+                .filter((item) => !("roles" in item) || (item.roles && hasRole(user?.roles ?? [], [...item.roles])))
+                .map((item) => {
+                  const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                        isActive ? "bg-[#2D7A32] text-white" : "text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="font-medium">{item.name}</span>
+                    </Link>
+                  )
+                })
+            )}
           </nav>
 
           {/* User Profile */}

@@ -1,6 +1,6 @@
 -- Table des lignes budgétaires
 CREATE TABLE IF NOT EXISTS lignes_budgetaires (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_projet UUID REFERENCES projets(id) ON DELETE SET NULL,
   nom TEXT NOT NULL,
   description TEXT,
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS lignes_budgetaires (
 
 -- Table des dépenses
 CREATE TABLE IF NOT EXISTS depenses (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_ligne_budgetaire UUID REFERENCES lignes_budgetaires(id) ON DELETE SET NULL,
   id_projet UUID REFERENCES projets(id) ON DELETE SET NULL,
   id_ordre_mission UUID REFERENCES ordres_mission(id) ON DELETE SET NULL,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS depenses (
 
 -- Table des demandes d'achat
 CREATE TABLE IF NOT EXISTS demandes_achat (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_demandeur UUID NOT NULL REFERENCES profils(id) ON DELETE CASCADE,
   id_projet UUID REFERENCES projets(id) ON DELETE SET NULL,
   objet TEXT NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS demandes_achat (
 
 -- Table des articles/services des demandes d'achat
 CREATE TABLE IF NOT EXISTS articles_demande_achat (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_demande_achat UUID NOT NULL REFERENCES demandes_achat(id) ON DELETE CASCADE,
   designation TEXT NOT NULL,
   quantite INTEGER NOT NULL DEFAULT 1,
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS articles_demande_achat (
 
 -- Table des véhicules
 CREATE TABLE IF NOT EXISTS vehicules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   immatriculation TEXT UNIQUE NOT NULL,
   marque TEXT NOT NULL,
   modele TEXT NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS vehicules (
 
 -- Table des affectations de véhicules
 CREATE TABLE IF NOT EXISTS affectations_vehicules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_vehicule UUID NOT NULL REFERENCES vehicules(id) ON DELETE CASCADE,
   id_ordre_mission UUID REFERENCES ordres_mission(id) ON DELETE SET NULL,
   id_conducteur UUID REFERENCES profils(id) ON DELETE SET NULL,
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS affectations_vehicules (
 
 -- Table des entretiens de véhicules
 CREATE TABLE IF NOT EXISTS entretiens_vehicules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_vehicule UUID NOT NULL REFERENCES vehicules(id) ON DELETE CASCADE,
   type_entretien TEXT NOT NULL CHECK (type_entretien IN ('vidange', 'revision', 'reparation', 'controle_technique', 'autre')),
   date_entretien DATE NOT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS entretiens_vehicules (
 
 -- Table des notifications
 CREATE TABLE IF NOT EXISTS notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_utilisateur UUID NOT NULL REFERENCES profils(id) ON DELETE CASCADE,
   titre TEXT NOT NULL,
   message TEXT NOT NULL,
@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Table des téléchargements de fichiers
 CREATE TABLE IF NOT EXISTS telechargements_fichiers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom_fichier TEXT NOT NULL,
   chemin_fichier TEXT NOT NULL,
   type_fichier TEXT,
@@ -158,53 +158,66 @@ CREATE TABLE IF NOT EXISTS telechargements_fichiers (
 
 -- Index pour améliorer les performances
 CREATE INDEX IF NOT EXISTS idx_lignes_budgetaires_projet ON lignes_budgetaires(id_projet);
-CREATE INDEX IF NOT EXISTS idx_lignes_budgetaires_annee ON lignes_budgetaires(annee);
+-- Index annee uniquement si la colonne existe (compatibilité schéma existant)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'lignes_budgetaires' AND column_name = 'annee') THEN
+    CREATE INDEX IF NOT EXISTS idx_lignes_budgetaires_annee ON lignes_budgetaires(annee);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_depenses_ligne_budgetaire ON depenses(id_ligne_budgetaire);
-CREATE INDEX IF NOT EXISTS idx_depenses_projet ON depenses(id_projet);
-CREATE INDEX IF NOT EXISTS idx_depenses_date ON depenses(date_depense);
-CREATE INDEX IF NOT EXISTS idx_depenses_statut ON depenses(statut);
-CREATE INDEX IF NOT EXISTS idx_demandes_achat_demandeur ON demandes_achat(id_demandeur);
-CREATE INDEX IF NOT EXISTS idx_demandes_achat_statut ON demandes_achat(statut);
-CREATE INDEX IF NOT EXISTS idx_articles_demande_achat ON articles_demande_achat(id_demande_achat);
-CREATE INDEX IF NOT EXISTS idx_vehicules_etat ON vehicules(etat);
-CREATE INDEX IF NOT EXISTS idx_affectations_vehicule ON affectations_vehicules(id_vehicule);
-CREATE INDEX IF NOT EXISTS idx_affectations_ordre_mission ON affectations_vehicules(id_ordre_mission);
-CREATE INDEX IF NOT EXISTS idx_entretiens_vehicule ON entretiens_vehicules(id_vehicule);
-CREATE INDEX IF NOT EXISTS idx_notifications_utilisateur ON notifications(id_utilisateur);
-CREATE INDEX IF NOT EXISTS idx_notifications_lue ON notifications(id_utilisateur, lue);
-CREATE INDEX IF NOT EXISTS idx_telechargements_utilisateur ON telechargements_fichiers(id_utilisateur);
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_depenses_projet ON depenses(id_projet); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_depenses_date ON depenses(date_depense); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_depenses_statut ON depenses(statut); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_demandes_achat_demandeur ON demandes_achat(id_demandeur); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_demandes_achat_statut ON demandes_achat(statut); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_articles_demande_achat ON articles_demande_achat(id_demande_achat); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_vehicules_etat ON vehicules(etat); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_affectations_vehicule ON affectations_vehicules(id_vehicule); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_affectations_ordre_mission ON affectations_vehicules(id_ordre_mission); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_entretiens_vehicule ON entretiens_vehicules(id_vehicule); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_notifications_utilisateur ON notifications(id_utilisateur); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_notifications_lue ON notifications(id_utilisateur, lue); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
+DO $$ BEGIN CREATE INDEX IF NOT EXISTS idx_telechargements_utilisateur ON telechargements_fichiers(id_utilisateur); EXCEPTION WHEN undefined_column THEN NULL; END; $$;
 
--- Triggers pour updated_at
+-- Triggers pour updated_at (idempotents)
+DROP TRIGGER IF EXISTS update_lignes_budgetaires_updated_at ON lignes_budgetaires;
 CREATE TRIGGER update_lignes_budgetaires_updated_at
   BEFORE UPDATE ON lignes_budgetaires
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_depenses_updated_at ON depenses;
 CREATE TRIGGER update_depenses_updated_at
   BEFORE UPDATE ON depenses
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_demandes_achat_updated_at ON demandes_achat;
 CREATE TRIGGER update_demandes_achat_updated_at
   BEFORE UPDATE ON demandes_achat
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_vehicules_updated_at ON vehicules;
 CREATE TRIGGER update_vehicules_updated_at
   BEFORE UPDATE ON vehicules
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_affectations_vehicules_updated_at ON affectations_vehicules;
 CREATE TRIGGER update_affectations_vehicules_updated_at
   BEFORE UPDATE ON affectations_vehicules
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_entretiens_vehicules_updated_at ON entretiens_vehicules;
 CREATE TRIGGER update_entretiens_vehicules_updated_at
   BEFORE UPDATE ON entretiens_vehicules
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_telechargements_fichiers_updated_at ON telechargements_fichiers;
 CREATE TRIGGER update_telechargements_fichiers_updated_at
   BEFORE UPDATE ON telechargements_fichiers
   FOR EACH ROW

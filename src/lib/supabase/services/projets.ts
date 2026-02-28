@@ -5,7 +5,7 @@ export interface Projet {
   nom: string
   code_projet: string
   objectifs?: string
-  zones_intervention?: string
+  zones_intervention?: string | string[]
   date_debut: string
   date_fin: string
   budget_total: number

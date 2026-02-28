@@ -20,6 +20,9 @@ import {
   List,
   Edit,
   Download,
+  Users,
+  UserPlus,
+  X,
 } from "lucide-react"
 
 interface Projet {
@@ -27,7 +30,7 @@ interface Projet {
   nom: string
   code_projet: string
   objectifs?: string
-  zones_intervention?: string
+  zones_intervention?: string | string[]
   date_debut: string
   date_fin: string
   budget_total: number
@@ -46,6 +49,10 @@ export default function ProjetDetailPage() {
     indicateurs: 0,
     budgetUtilise: 0,
   })
+  const [partenaires, setPartenaires] = useState<{ id: string; id_partenaire: string; nom?: string; email?: string }[]>([])
+  const [partenairesDispos, setPartenairesDispos] = useState<{ id: string; nom: string; email: string }[]>([])
+  const [partenaireSelect, setPartenaireSelect] = useState("")
+  const [partenaireLoading, setPartenaireLoading] = useState(false)
 
   useEffect(() => {
     if (params.id) {
@@ -72,22 +79,43 @@ export default function ProjetDetailPage() {
 
       setResponsable(profil ? `${profil.prenom} ${profil.nom}` : "Inconnu")
 
-      // Charger les statistiques
-      const { data: activites } = await supabase
-        .from("activites_projet")
-        .select("id", { count: "exact", head: true })
-        .eq("id_projet", data.id)
-
-      const { data: indicateurs } = await supabase
-        .from("indicateurs_projet")
-        .select("id", { count: "exact", head: true })
-        .eq("id_projet", data.id)
+      // Charger les statistiques (activités et indicateurs)
+      const { activitesProjetService, indicateursProjetService } = await import(
+        "@/lib/supabase/services"
+      )
+      const [activitesList, indicateursList] = await Promise.all([
+        activitesProjetService.getByProjet(data.id),
+        indicateursProjetService.getByProjet(data.id),
+      ])
 
       setStats({
-        activites: activites?.length || 0,
-        indicateurs: indicateurs?.length || 0,
-        budgetUtilise: 0, // À calculer depuis les dépenses
+        activites: activitesList.length,
+        indicateurs: indicateursList.length,
+        budgetUtilise: 0,
       })
+
+      const { partenairesProjetService } = await import("@/lib/supabase/services")
+      const [partenairesList, disposList] = await Promise.all([
+        partenairesProjetService.getPartenairesPourProjet(data.id),
+        partenairesProjetService.getUtilisateursPartenaire(),
+      ])
+      setPartenairesDispos(disposList)
+      const avecProfils = await Promise.all(
+        partenairesList.map(async (pp) => {
+          const { data: pr } = await supabase
+            .from("profils")
+            .select("nom, prenom, email")
+            .eq("id", pp.id_partenaire)
+            .single()
+          return {
+            id: pp.id,
+            id_partenaire: pp.id_partenaire,
+            nom: pr ? [pr.prenom, pr.nom].filter(Boolean).join(" ") : undefined,
+            email: pr?.email,
+          }
+        })
+      )
+      setPartenaires(avecProfils)
     } catch (error: any) {
       console.error("Erreur:", error)
       router.push("/meal/projets")
@@ -97,10 +125,7 @@ export default function ProjetDetailPage() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount)
+    return `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} FCFA`
   }
 
   const getProgressPercentage = () => {
@@ -278,12 +303,16 @@ export default function ProjetDetailPage() {
               </div>
             </div>
 
-            {projet.zones_intervention && (
+            {projet.zones_intervention && (Array.isArray(projet.zones_intervention) ? projet.zones_intervention.length > 0 : true) && (
               <div className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-600">Zones d'intervention</p>
-                  <p className="text-gray-900">{projet.zones_intervention}</p>
+                  <p className="text-gray-900">
+                    {Array.isArray(projet.zones_intervention)
+                      ? projet.zones_intervention.join(", ")
+                      : projet.zones_intervention}
+                  </p>
                 </div>
               </div>
             )}
@@ -325,6 +354,105 @@ export default function ProjetDetailPage() {
               <span>Début: {new Date(projet.date_debut).toLocaleDateString("fr-FR")}</span>
               <span>Fin: {new Date(projet.date_fin).toLocaleDateString("fr-FR")}</span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Partenaires : partage du projet */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Partenaires ayant accès à ce projet
+          </CardTitle>
+          <p className="text-sm text-gray-500 mt-1">
+            Les partenaires sélectionnés pourront voir ce projet en lecture seule dans leur espace partenaire.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2">
+            {partenaires.map((p) => (
+              <li
+                key={p.id_partenaire}
+                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+              >
+                <div>
+                  <p className="font-medium text-gray-900">{p.nom || p.email || p.id_partenaire}</p>
+                  {p.email && <p className="text-xs text-gray-500">{p.email}</p>}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  disabled={partenaireLoading}
+                  onClick={async () => {
+                    setPartenaireLoading(true)
+                    try {
+                      const { partenairesProjetService } = await import("@/lib/supabase/services")
+                      await partenairesProjetService.retirer(projet.id, p.id_partenaire)
+                      setPartenaires((prev) => prev.filter((x) => x.id_partenaire !== p.id_partenaire))
+                    } finally {
+                      setPartenaireLoading(false)
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Retirer
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {partenaires.length === 0 && (
+            <p className="text-sm text-gray-500 italic">Aucun partenaire n'a accès à ce projet.</p>
+          )}
+          <div className="flex flex-wrap items-end gap-2 pt-2">
+            <div className="min-w-[200px]">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Partager avec un partenaire
+              </label>
+              <select
+                value={partenaireSelect}
+                onChange={(e) => setPartenaireSelect(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-[#2D7A32] focus:border-transparent"
+              >
+                <option value="">Sélectionner un partenaire</option>
+                {partenairesDispos
+                  .filter((d) => !partenaires.some((p) => p.id_partenaire === d.id))
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nom} ({d.email})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <Button
+              size="sm"
+              disabled={!partenaireSelect || partenaireLoading}
+              onClick={async () => {
+                if (!partenaireSelect) return
+                setPartenaireLoading(true)
+                try {
+                  const { partenairesProjetService } = await import("@/lib/supabase/services")
+                  await partenairesProjetService.ajouter(projet.id, partenaireSelect)
+                  const added = partenairesDispos.find((d) => d.id === partenaireSelect)
+                  setPartenaires((prev) => [
+                    ...prev,
+                    {
+                      id: "",
+                      id_partenaire: partenaireSelect,
+                      nom: added?.nom,
+                      email: added?.email,
+                    },
+                  ])
+                  setPartenaireSelect("")
+                } finally {
+                  setPartenaireLoading(false)
+                }
+              }}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Ajouter
+            </Button>
           </div>
         </CardContent>
       </Card>

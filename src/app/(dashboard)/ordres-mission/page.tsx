@@ -27,6 +27,7 @@ export default function OrdresMissionPage() {
   const [filterStatut, setFilterStatut] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [ordres, setOrdres] = useState<OrdreMissionRow[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
   const [submittingId, setSubmittingId] = useState<string | null>(null)
 
@@ -36,6 +37,7 @@ export default function OrdresMissionPage() {
 
   const loadOrdres = async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const { ordresMissionService } = await import("@/lib/supabase/services")
       const { createClient } = await import("@/lib/supabase/client")
@@ -71,7 +73,10 @@ export default function OrdresMissionPage() {
       setOrdres(ordresAvecProfils)
     } catch (error: unknown) {
       const err = error as { message?: string; code?: string }
-      console.error("Erreur loadOrdres:", err?.message ?? err?.code ?? String(error))
+      const msg = err?.message ?? err?.code ?? String(error)
+      console.error("Erreur loadOrdres:", msg, error)
+      setLoadError(msg.includes("date_creation") ? "Colonne date_creation manquante en base. Appliquez les migrations (db push)." : msg)
+      setOrdres([])
     } finally {
       setLoading(false)
     }
@@ -126,10 +131,13 @@ export default function OrdresMissionPage() {
       const { ordresMissionService } = await import("@/lib/supabase/services")
       await ordresMissionService.submit(ordre.id)
       await loadOrdres()
+      alert("Ordre soumis. Il est en attente de validation par la Direction / MEAL. Les validateurs peuvent traiter la demande depuis la page Validation des ordres.")
     } catch (err: unknown) {
       const e = err as { message?: string }
-      console.error("Erreur soumission:", e?.message ?? err)
-      alert(e?.message ?? "Erreur lors de la soumission")
+      const raw = e?.message ?? String(err)
+      console.error("Erreur soumission:", raw, err)
+      const msg = raw.includes("row-level security") || raw.includes("RLS") ? "Vous n'avez pas les autorisations nécessaires." : raw
+      alert(msg || "Erreur lors de la soumission")
     } finally {
       setSubmittingId(null)
     }
@@ -229,6 +237,12 @@ export default function OrdresMissionPage() {
           {loading ? (
             <div className="text-center py-12">
               <p className="text-gray-500">Chargement...</p>
+            </div>
+          ) : loadError ? (
+            <div className="text-center py-12">
+              <p className="text-red-600 mb-2">Erreur lors du chargement des ordres</p>
+              <p className="text-gray-600 text-sm mb-4">{loadError}</p>
+              <Button onClick={() => loadOrdres()}>Réessayer</Button>
             </div>
           ) : filteredOrdres.length === 0 ? (
             <div className="text-center py-12">

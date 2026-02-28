@@ -19,6 +19,19 @@ import {
   ArrowRight,
   Calendar,
 } from "lucide-react"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts"
 
 interface Notification {
   id: string
@@ -37,6 +50,21 @@ export default function DashboardPage() {
     mesProjets: 0,
     notificationsNonLues: 0,
   })
+  const [cockpitKpi, setCockpitKpi] = useState({
+    projetsActifs: 0,
+    budgetTotal: 0,
+    budgetDepense: 0,
+    tauxPhysiqueMoyen: 0,
+    tauxFinancierMoyen: 0,
+    ordresParStatut: {} as Record<string, number>,
+  })
+  const [cockpitData, setCockpitData] = useState<{
+    projets: any[]
+    activites: any[]
+    indicateurs: any[]
+    ordres: any[]
+    depenses: any[]
+  }>({ projets: [], activites: [], indicateurs: [], ordres: [], depenses: [] })
   const [notificationsRecentes, setNotificationsRecentes] = useState<Notification[]>([])
   const [tachesEnAttente, setTachesEnAttente] = useState<any[]>([])
 
@@ -47,28 +75,83 @@ export default function DashboardPage() {
   const loadDashboardData = async () => {
     setLoading(true)
     try {
-      // Charger les ordres en attente
-      const { ordresMissionService } = await import("@/lib/supabase/services")
-      const ordresEnAttente = await ordresMissionService.getAll({ statut: "en_attente" })
-
-      // Charger les projets de l'utilisateur
-      const { projetsService } = await import("@/lib/supabase/services")
+      const { ordresMissionService, projetsService, notificationsService, activitesProjetService, indicateursProjetService } = await import("@/lib/supabase/services")
       const { createClient } = await import("@/lib/supabase/client")
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      const mesProjets = user ? await projetsService.getAll({ id_responsable: user.id }) : []
 
-      // Charger les notifications
-      const { notificationsService } = await import("@/lib/supabase/services")
+      // Ordres et notifications (existants)
+      const [ordresEnAttente, mesProjets, notifications, allProjets, allOrdres] = await Promise.all([
+        ordresMissionService.getAll({ statut: "en_attente" }),
+        user ? projetsService.getAll({ id_responsable: user.id }) : [],
+        notificationsService.getAll({ lue: false }),
+        projetsService.getAll(),
+        ordresMissionService.getAll(),
+      ])
+
       const notificationsNonLues = await notificationsService.countUnread()
-      const notifications = await notificationsService.getAll({ lue: false })
       setNotificationsRecentes(notifications.slice(0, 5))
 
       setStats({
         ordresEnAttente: ordresEnAttente.length,
-        mesTaches: 0, // À calculer depuis différentes sources
+        mesTaches: 0,
         mesProjets: mesProjets.length,
         notificationsNonLues,
+      })
+
+      // Cockpit : limiter à 50 projets pour les détails
+      const projetIds = (allProjets as any[]).slice(0, 50).map((p) => p.id)
+      let activites: any[] = []
+      let indicateurs: any[] = []
+      let depenses: any[] = []
+
+      if (projetIds.length > 0) {
+        const [actRes, indRes] = await Promise.all([
+          supabase.from("activites_projet").select("*").in("id_projet", projetIds),
+          supabase.from("indicateurs_projet").select("*").in("id_projet", projetIds),
+        ])
+        activites = actRes.data ?? []
+        indicateurs = indRes.data ?? []
+      }
+
+      try {
+        const { depensesService } = await import("@/lib/supabase/services")
+        depenses = await depensesService.getAll()
+      } catch {
+        depenses = []
+      }
+
+      setCockpitData({
+        projets: allProjets as any[],
+        activites,
+        indicateurs,
+        ordres: allOrdres as any[],
+        depenses,
+      })
+
+      const now = new Date().toISOString().slice(0, 10)
+      const projetsActifs = (allProjets as any[]).filter((p) => p.date_fin >= now).length
+      const budgetTotal = (allProjets as any[]).reduce((s, p) => s + Number(p.budget_total ?? 0), 0)
+      const budgetDepense = activites.reduce((s, a) => s + Number(a.depenses_reelles ?? 0), 0)
+      const totalPhysique = activites.reduce((s, a) => s + (a.taux_realisation_physique ?? 0), 0)
+      const totalFinancier = activites.reduce((s, a) => s + Number(a.taux_realisation_financiere ?? 0), 0)
+      const n = activites.length || 1
+      const ordresParStatut = (allOrdres as any[]).reduce(
+        (acc, o) => {
+          const st = o.statut ?? "brouillon"
+          acc[st] = (acc[st] ?? 0) + 1
+          return acc
+        },
+        {} as Record<string, number>
+      )
+
+      setCockpitKpi({
+        projetsActifs,
+        budgetTotal,
+        budgetDepense,
+        tauxPhysiqueMoyen: Math.round(totalPhysique / n),
+        tauxFinancierMoyen: Math.round(totalFinancier / n),
+        ordresParStatut,
       })
     } catch (error) {
       console.error("Erreur:", error)
@@ -89,6 +172,172 @@ export default function DashboardPage() {
       <div className="bg-gradient-to-r from-[#2D7A32] to-[#4CAF50] rounded-lg p-8 text-white">
         <h1 className="text-4xl font-bold mb-2">Tableau de bord</h1>
         <p className="text-white/90 text-lg">Bienvenue sur la plateforme AFDR</p>
+      </div>
+
+      {/* Cockpit de pilotage - KPI */}
+      <div>
+        <h2 className="text-xl font-semibold text-gray-800 mb-4">Cockpit de pilotage</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Projets actifs</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">{loading ? "—" : cockpitKpi.projetsActifs}</p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Budget total (FCFA)</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">
+                {loading ? "—" : cockpitKpi.budgetTotal.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Dépensé (FCFA)</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">
+                {loading ? "—" : cockpitKpi.budgetDepense.toLocaleString("fr-FR", { maximumFractionDigits: 0 })}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Taux réal. physique</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">{loading ? "—" : `${cockpitKpi.tauxPhysiqueMoyen} %`}</p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Taux réal. financier</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">{loading ? "—" : `${cockpitKpi.tauxFinancierMoyen} %`}</p>
+            </CardContent>
+          </Card>
+          <Card className="hover:shadow-md transition-shadow">
+            <CardContent className="p-4">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Ordres en attente</p>
+              <p className="text-2xl font-bold text-[#2D7A32] mt-1">
+                {loading ? "—" : (cockpitKpi.ordresParStatut["en_attente"] ?? 0)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Graphiques avancés */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Budget par projet (top 10) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Budget par projet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Chargement...</div>
+            ) : cockpitData.projets.length === 0 ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Aucune donnée</div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={cockpitData.projets
+                      .slice()
+                      .sort((a, b) => Number(b.budget_total ?? 0) - Number(a.budget_total ?? 0))
+                      .slice(0, 10)
+                      .map((p) => ({
+                        nom: (p.nom ?? "").length > 12 ? (p.nom as string).slice(0, 12) + "…" : p.nom,
+                        budget: Number(p.budget_total ?? 0),
+                      }))}
+                    margin={{ top: 8, right: 8, left: 8, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="nom" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
+                    <Tooltip formatter={(v: number | undefined) => [(v ?? 0).toLocaleString("fr-FR"), "Budget (FCFA)"]} />
+                    <Bar dataKey="budget" fill="#2D7A32" name="Budget (FCFA)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Ordres de mission par statut */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Ordres de mission par statut</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Chargement...</div>
+            ) : Object.keys(cockpitKpi.ordresParStatut).length === 0 ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Aucune donnée</div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(cockpitKpi.ordresParStatut).map(([statut, count]) => ({
+                        name: statut.replace("_", " "),
+                        value: count,
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {Object.entries(cockpitKpi.ordresParStatut).map((_, i) => {
+                        const colors = ["#2D7A32", "#4CAF50", "#81C784", "#FFB74D", "#E57373", "#64B5F6"]
+                        return <Cell key={i} fill={colors[i % colors.length]} />
+                      })}
+                    </Pie>
+                    <Tooltip formatter={(v: number | undefined) => [v ?? 0, "Nombre"]} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Indicateurs : objectif vs réalisé */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg">Indicateurs : objectif vs réalisé</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Chargement...</div>
+            ) : cockpitData.indicateurs.length === 0 ? (
+              <div className="h-64 flex items-center justify-center text-gray-500">Aucun indicateur</div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={cockpitData.indicateurs
+                      .slice(0, 12)
+                      .map((ind) => ({
+                        nom: (ind.nom ?? "").length > 14 ? (ind.nom as string).slice(0, 14) + "…" : ind.nom,
+                        objectif: Number(ind.valeur_cible ?? 0),
+                        realise: Number(ind.valeur_actuelle ?? 0),
+                      }))}
+                    margin={{ top: 8, right: 8, left: 8, bottom: 24 }}
+                    layout="vertical"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis type="category" dataKey="nom" width={100} tick={{ fontSize: 10 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="objectif" fill="#94A3B8" name="Objectif" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="realise" fill="#2D7A32" name="Réalisé" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Widgets statistiques */}

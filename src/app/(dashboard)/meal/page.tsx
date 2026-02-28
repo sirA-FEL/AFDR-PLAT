@@ -76,7 +76,7 @@ export default function MealPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600 mb-1">Budget total</p>
                 <p className="text-4xl font-bold text-[#2D7A32]">
-                  {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(stats.budgetTotal)}
+                  {new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stats.budgetTotal)} FCFA
                 </p>
               </div>
               <DollarSign className="h-12 w-12 text-[#2D7A32]" />

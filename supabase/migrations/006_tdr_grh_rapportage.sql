@@ -100,22 +100,26 @@ CREATE INDEX IF NOT EXISTS idx_rapports_responsable ON rapports(id_responsable);
 CREATE INDEX IF NOT EXISTS idx_rapports_date_limite ON rapports(date_limite);
 CREATE INDEX IF NOT EXISTS idx_relances_rapports ON relances_rapports(id_rapport);
 
--- Trigger pour updated_at
+-- Triggers pour updated_at (idempotents)
+DROP TRIGGER IF EXISTS update_tdrs_updated_at ON tdrs;
 CREATE TRIGGER update_tdrs_updated_at
   BEFORE UPDATE ON tdrs
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_employes_updated_at ON employes;
 CREATE TRIGGER update_employes_updated_at
   BEFORE UPDATE ON employes
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_demandes_conges_updated_at ON demandes_conges;
 CREATE TRIGGER update_demandes_conges_updated_at
   BEFORE UPDATE ON demandes_conges
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_rapports_updated_at ON rapports;
 CREATE TRIGGER update_rapports_updated_at
   BEFORE UPDATE ON rapports
   FOR EACH ROW

@@ -12,6 +12,27 @@ import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
 import { ArrowLeft, Calendar, Save, Users } from "lucide-react"
 import Link from "next/link"
 
+// 17 régions administratives du Burkina Faso (noms officiels, découpage 2025)
+const REGIONS_BURKINA_FASO = [
+  "Bankui (Boucle du Mouhoun)",
+  "Cascades",
+  "Centre (Kadiogo)",
+  "Centre-Est (Nakambé)",
+  "Centre-Nord (Kuilsé)",
+  "Centre-Ouest (Nando)",
+  "Centre-Sud (Nazinon)",
+  "Est (Goulmou)",
+  "Hauts-Bassins (Guiriko)",
+  "Nord (Yaadga)",
+  "Plateau-Central (Oubri)",
+  "Sahel (Liptako)",
+  "Sirba",
+  "Soum",
+  "Sourou",
+  "Sud-Ouest (Djôrô)",
+  "Tapoa",
+] as const
+
 export default function NouveauProjetMEALPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -25,29 +46,46 @@ export default function NouveauProjetMEALPage() {
     budgetTotal: "",
     responsableId: "",
   })
-  const [codeAutoGenere, setCodeAutoGenere] = useState(false)
+  // Liste des responsables (profils depuis Supabase — id = UUID)
+  const [responsables, setResponsables] = useState<Array<{ id: string; nom: string; email: string }>>([])
 
-  // Liste des responsables (à remplacer par données Supabase)
-  const [responsables] = useState([
-    { id: "1", nom: "Jean Dupont", email: "jean.dupont@afdr.org" },
-    { id: "2", nom: "Marie Martin", email: "marie.martin@afdr.org" },
-  ])
-
-  // Génération automatique du code projet
   useEffect(() => {
-    if (!formData.codeProjet && formData.nom) {
-      const code = formData.nom
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "")
-        .substring(0, 8)
-      if (code.length >= 3) {
-        setFormData((prev) => ({ ...prev, codeProjet: code }))
-        setCodeAutoGenere(true)
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { profilService } = await import("@/lib/supabase/services")
+        const list = await profilService.getAll()
+        if (!cancelled) {
+          setResponsables(
+            list.map((p) => ({
+              id: p.id,
+              nom: [p.prenom, p.nom].filter(Boolean).join(" ") || p.email,
+              email: p.email,
+            }))
+          )
+        }
+      } catch (e) {
+        if (!cancelled) setResponsables([])
       }
-    } else if (formData.codeProjet && codeAutoGenere) {
-      setCodeAutoGenere(false)
+    })()
+    return () => {
+      cancelled = true
     }
-  }, [formData.nom, formData.codeProjet, codeAutoGenere])
+  }, [])
+
+  // Aperçu du code généré (même logique que projetsService.generateCodeProjet)
+  const previewCode = (() => {
+    if (!formData.nom.trim()) return null
+    const prefix = "PROJ"
+    const code = formData.nom
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .substring(0, 8)
+    const timestamp = Date.now().toString().slice(-6)
+    return code.length >= 3 ? `${code}-${timestamp}` : `${prefix}-${timestamp}`
+  })()
+
+  const showCodePreview = !formData.codeProjet && !!previewCode
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,7 +121,7 @@ export default function NouveauProjetMEALPage() {
         nom: formData.nom,
         code_projet: formData.codeProjet || undefined,
         objectifs: formData.objectifs || undefined,
-        zones_intervention: formData.zonesIntervention || undefined,
+        zones_intervention: formData.zonesIntervention ? [formData.zonesIntervention] : undefined,
         date_debut: formData.dateDebut,
         date_fin: formData.dateFin,
         budget_total: budget,
@@ -98,12 +136,6 @@ export default function NouveauProjetMEALPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const generateCodeAuto = () => {
-    const prefix = "PROJ"
-    const timestamp = Date.now().toString().slice(-6)
-    return `${prefix}-${timestamp}`
   }
 
   return (
@@ -151,7 +183,7 @@ export default function NouveauProjetMEALPage() {
             {/* Code projet */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Code projet {codeAutoGenere && <span className="text-xs text-gray-500">(généré automatiquement)</span>}
+                Code projet
               </label>
               <Input
                 type="text"
@@ -159,9 +191,24 @@ export default function NouveauProjetMEALPage() {
                 value={formData.codeProjet}
                 onChange={(e) => setFormData({ ...formData, codeProjet: e.target.value })}
               />
-              {codeAutoGenere && (
+              {showCodePreview && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm text-gray-600">
+                    Code qui sera utilisé : <span className="font-mono font-medium text-[#2D7A32]">{previewCode}</span>
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData((prev) => ({ ...prev, codeProjet: previewCode ?? "" }))}
+                  >
+                    Utiliser ce code
+                  </Button>
+                </div>
+              )}
+              {!formData.codeProjet && !previewCode && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Le code sera généré automatiquement à partir du nom du projet
+                  Saisissez le nom du projet pour voir l’aperçu du code généré automatiquement.
                 </p>
               )}
             </div>
@@ -183,12 +230,18 @@ export default function NouveauProjetMEALPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Zones d'intervention
               </label>
-              <Input
-                type="text"
-                placeholder="Ex: Région Nord, Province de Kivu, etc."
+              <select
                 value={formData.zonesIntervention}
                 onChange={(e) => setFormData({ ...formData, zonesIntervention: e.target.value })}
-              />
+                className="w-full px-3 py-2 border border-[#2D7A32]/20 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2D7A32] focus:border-transparent bg-white"
+              >
+                <option value="">Sélectionnez une région du Burkina Faso</option>
+                {REGIONS_BURKINA_FASO.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Dates */}

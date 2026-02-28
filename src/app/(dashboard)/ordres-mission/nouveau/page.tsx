@@ -49,10 +49,10 @@ export default function NouvelOrdreMissionPage() {
       // Soumettre l'ordre (passe de brouillon à en_attente)
       await ordresMissionService.submit(ordre.id)
 
-      // Redirection vers la liste
+      alert("Ordre soumis. Il est en attente de validation par la Direction / MEAL. Les validateurs peuvent traiter la demande depuis la page Validation des ordres.")
       router.push("/ordres-mission/mes-ordres")
     } catch (error: unknown) {
-      const message =
+      const raw =
         error instanceof Error
           ? error.message
           : (error && typeof error === "object" && "message" in error)
@@ -60,7 +60,11 @@ export default function NouvelOrdreMissionPage() {
             : typeof error === "string"
               ? error
               : "Erreur lors de la création de l'ordre de mission"
-      console.error("Erreur lors de la création:", message, error)
+      const message =
+        raw.includes("row-level security") || raw.includes("RLS")
+          ? "Vous n'avez pas les autorisations nécessaires."
+          : raw
+      console.error("Erreur lors de la création:", raw, error)
       alert(message)
     } finally {
       setLoading(false)

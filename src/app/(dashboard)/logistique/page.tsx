@@ -4,21 +4,37 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
-import { Package, ShoppingCart, ArrowRight } from "lucide-react"
+import { Package, ShoppingCart, ArrowRight, Car } from "lucide-react"
+import { hasRole } from "@/lib/auth/niveau-acces"
 
 export default function LogistiquePage() {
   const [stats, setStats] = useState({
     demandesEnAttente: 0,
     demandesApprouvees: 0,
   })
+  const [roles, setRoles] = useState<string[]>([])
 
   useEffect(() => {
+    loadUser()
     loadStats()
   }, [])
+
+  const loadUser = async () => {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: rolesData } = await supabase.from("roles_utilisateurs").select("role").eq("id_utilisateur", user.id)
+      setRoles((rolesData ?? []).map((r) => r.role))
+    } catch {
+      // ignore
+    }
+  }
 
   const loadStats = async () => {
     try {
@@ -78,7 +94,7 @@ export default function LogistiquePage() {
           <CardTitle>Actions rapides</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Link href="/logistique/besoins/nouveau">
               <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center gap-2">
                 <Package className="h-6 w-6" />
@@ -92,6 +108,15 @@ export default function LogistiquePage() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
+            {hasRole(roles, ["LOG", "DIR"]) && (
+              <Link href="/logistique/vehicules">
+                <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center gap-2">
+                  <Car className="h-6 w-6" />
+                  <span>Parc automobile</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
           </div>
         </CardContent>
       </Card>

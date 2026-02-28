@@ -124,6 +124,18 @@ export const profilService = {
     return publicUrl
   },
 
+  // Récupérer tous les profils (pour listes déroulantes ex. responsable de projet)
+  async getAll() {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from("profils")
+      .select("id, nom, prenom, email")
+      .order("nom", { ascending: true })
+
+    if (error) throw error
+    return data as Pick<Profil, "id" | "nom" | "prenom" | "email">[]
+  },
+
   // Récupérer un profil par ID
   async getById(id: string) {
     const supabase = createClient()

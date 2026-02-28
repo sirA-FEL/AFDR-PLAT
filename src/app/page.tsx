@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { LogIn, FileText, Users, Shield } from "lucide-react"
+import { LogoAfdr } from "@/components/ui/logo-afdr"
 
 export default function HomePage() {
   return (
@@ -16,12 +17,12 @@ export default function HomePage() {
       >
         <div className="mb-8 flex justify-center">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#2D7A32] to-[#1B5E20] shadow-lg"
+            className="flex h-24 w-24 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-xl ring-2 ring-[#2D7A32]/20"
           >
-            <span className="text-3xl font-bold text-white">A</span>
+            <LogoAfdr variant="card" className="h-full w-full object-contain p-2" />
           </motion.div>
         </div>
         <h1 className="text-3xl font-bold text-[#1B5E20] sm:text-4xl">

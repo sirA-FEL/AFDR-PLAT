@@ -52,8 +52,8 @@ export default function ProjetsMEALPage() {
             .from("profils")
             .select("nom, prenom")
             .eq("id", id)
-            .single()
-          return { id, nom: profil ? `${profil.prenom} ${profil.nom}` : "Inconnu" }
+            .maybeSingle()
+          return { id, nom: profil ? `${profil.prenom ?? ""} ${profil.nom}`.trim() || "Inconnu" : "Inconnu" }
         })
       )
       setResponsables(responsablesData)
@@ -61,22 +61,24 @@ export default function ProjetsMEALPage() {
       // Charger les profils pour chaque projet
       const projetsAvecProfils = await Promise.all(
         data.map(async (p) => {
-          const { data: profil } = await supabase
+          const { data: profil, error: profilError } = await supabase
             .from("profils")
             .select("nom, prenom")
             .eq("id", p.id_responsable)
-            .single()
+            .maybeSingle()
 
+          if (profilError) throw profilError
           return {
             ...p,
-            responsable: profil ? `${profil.prenom} ${profil.nom}` : "Inconnu",
+            responsable: profil ? `${profil.prenom ?? ""} ${profil.nom}`.trim() || "Inconnu" : "Inconnu",
           }
         })
       )
 
       setProjets(projetsAvecProfils)
-    } catch (error: any) {
-      console.error("Erreur:", error)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : (error && typeof (error as any)?.message === "string" ? (error as any).message : JSON.stringify(error))
+      console.error("Erreur loadProjets:", msg, error)
     } finally {
       setLoading(false)
     }
@@ -92,10 +94,7 @@ export default function ProjetsMEALPage() {
   })
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount)
+    return `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} FCFA`
   }
 
   const getProgressPercentage = (projet: Projet) => {

@@ -47,7 +47,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger pour profils
+-- Trigger pour profils (idempotent)
+DROP TRIGGER IF EXISTS update_profils_updated_at ON profils;
 CREATE TRIGGER update_profils_updated_at
   BEFORE UPDATE ON profils
   FOR EACH ROW

@@ -2,6 +2,7 @@
 -- et peuvent les valider (mise à jour statut, signature, commentaire).
 
 -- SELECT : la direction peut voir tous les ordres (pour la page Validation)
+DROP POLICY IF EXISTS "La direction peut voir tous les ordres de mission" ON ordres_mission;
 CREATE POLICY "La direction peut voir tous les ordres de mission"
   ON ordres_mission FOR SELECT
   USING (
@@ -12,6 +13,7 @@ CREATE POLICY "La direction peut voir tous les ordres de mission"
   );
 
 -- UPDATE : la direction peut valider/rejeter les ordres (en_attente -> approuve/rejete)
+DROP POLICY IF EXISTS "La direction peut valider ou rejeter les ordres en attente" ON ordres_mission;
 CREATE POLICY "La direction peut valider ou rejeter les ordres en attente"
   ON ordres_mission FOR UPDATE
   USING (

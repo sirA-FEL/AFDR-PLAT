@@ -39,9 +39,21 @@ npx tsx scripts/setup-vercel-env.ts
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (production, preview, development)
 - `SUPABASE_SERVICE_ROLE_KEY` (production uniquement)
 
-### 2. `create-test-user.ts` - Création d'utilisateur de test
+### 2. `seed-account.mjs` - Création de comptes (Niveau 1, 2, 3, Partenaires, Validateurs)
 
-Crée un utilisateur de test dans Supabase avec profil et rôle.
+Script générique pour créer un compte avec le rôle demandé (USER, PM, FIN, LOG, GRH, DIR, MEAL, PART).
+
+**Utilisation :**
+```bash
+ROLE=USER EMAIL=niveau1@afdr.local PASSWORD=xxx node scripts/seed-account.mjs
+ROLE=DIR EMAIL=validateur@afdr.local PASSWORD=xxx node scripts/seed-account.mjs
+```
+
+Voir **README-seed-accounts.md** pour le tableau des types de comptes et tous les exemples.
+
+### 3. `create-test-user.ts` - Création d'utilisateur de test
+
+Crée un utilisateur de test dans Supabase avec profil et rôle (PM par défaut).
 
 **Utilisation :**
 ```bash

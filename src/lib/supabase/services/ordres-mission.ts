@@ -18,34 +18,37 @@ export interface OrdreMission {
   date_modification?: string
   pdf_url?: string
   signature_validation_url?: string
+  signature_validation_hash?: string
   date_validation?: string
   documents?: Array<{ nom: string; url: string }>
 }
 
+/** Calcule l'empreinte SHA-256 d'un Blob (conformité signature). */
+async function sha256Blob(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
 export const ordresMissionService = {
-  // Créer un ordre de mission (utilise le token de session pour que RLS auth.uid() soit défini)
+  // Créer un ordre de mission (via RPC pour éviter les blocages RLS)
   async create(data: Omit<OrdreMission, "id" | "date_creation" | "statut" | "id_demandeur">) {
     if (typeof window === "undefined") {
       throw new Error("Cette fonction ne peut être appelée que côté client")
     }
     const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) {
-      throw new Error("Session expirée. Veuillez vous reconnecter.")
-    }
-    const userId = session.user?.id
-    if (!userId) throw new Error("Utilisateur non authentifié")
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.id) throw new Error("Session expirée. Veuillez vous reconnecter.")
 
-    const supabaseWithAuth = createClient(session.access_token)
-    const { data: ordre, error } = await supabaseWithAuth
-      .from("ordres_mission")
-      .insert({
-        ...data,
-        id_demandeur: userId,
-        statut: "brouillon",
-      })
-      .select()
-      .single()
+    const { data: rows, error } = await supabase.rpc("insert_ordre_mission", {
+      p_destination: data.destination,
+      p_date_debut: data.date_debut,
+      p_date_fin: data.date_fin,
+      p_motif: data.motif,
+      p_activites_prevues: data.activites_prevues ?? null,
+      p_budget_estime: data.budget_estime ?? null,
+    })
 
     if (error) {
       const msg = (error as { message?: string; details?: string }).message
@@ -53,7 +56,9 @@ export const ordresMissionService = {
         || JSON.stringify(error)
       throw new Error(msg)
     }
-    return ordre
+    const ordre = Array.isArray(rows) ? rows[0] : rows
+    if (!ordre) throw new Error("Erreur lors de la création de l'ordre de mission")
+    return ordre as OrdreMission
   },
 
   // Récupérer tous les ordres de mission
@@ -107,17 +112,10 @@ export const ordresMissionService = {
     return data as OrdreMission
   },
 
-  // Mettre à jour un ordre (utilise le token en client pour que RLS auth.uid() soit défini)
+  // Mettre à jour un ordre (même client que la session pour que RLS auth.uid() soit défini)
   async update(id: string, updates: Partial<OrdreMission>) {
     const supabase = createClient()
-    let client = supabase
-    if (typeof window !== "undefined") {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        client = createClient(session.access_token)
-      }
-    }
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from("ordres_mission")
       .update({
         ...updates,
@@ -131,9 +129,14 @@ export const ordresMissionService = {
     return data as OrdreMission
   },
 
-  // Soumettre un ordre (passe de brouillon à en_attente)
+  // Soumettre un ordre (passe de brouillon à en_attente, via RPC pour éviter RLS)
   async submit(id: string) {
-    return this.update(id, { statut: "en_attente" })
+    const supabase = createClient()
+    const { data: rows, error } = await supabase.rpc("submit_ordre_mission", { p_id: id })
+    if (error) throw error
+    const updated = Array.isArray(rows) ? rows[0] : rows
+    if (!updated) throw new Error("Ordre introuvable ou déjà soumis.")
+    return updated as OrdreMission
   },
 
   // Approuver un ordre (par chef, finance ou direction)
@@ -161,25 +164,46 @@ export const ordresMissionService = {
     return this.update(id, updates)
   },
 
-  /** Approuver avec signature numérique (validateur direction). Upload la signature puis met à jour l'ordre. */
+  /** Approuver avec signature numérique (validateur direction). Hash SHA-256, upload, audit, pas d'écrasement. */
   async approveWithSignature(id: string, signatureBlob: Blob, commentaire?: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error("Utilisateur non authentifié")
 
+    const existing = await this.getById(id)
+    if (existing.signature_validation_url) {
+      throw new Error("Cet ordre possède déjà une signature ; l'écrasement n'est pas autorisé.")
+    }
+
+    const signatureHash = await sha256Blob(signatureBlob)
     const path = `${id}/signature.png`
     const { error: uploadError } = await supabase.storage
       .from("documents-ordre-mission")
-      .upload(path, signatureBlob, { contentType: "image/png", upsert: true })
+      .upload(path, signatureBlob, { contentType: "image/png", upsert: false })
     if (uploadError) throw new Error(uploadError.message || "Échec de l'upload de la signature")
 
-    return this.update(id, {
+    const updated = await this.update(id, {
       id_validateur_direction: user.id,
       signature_validation_url: path,
+      signature_validation_hash: signatureHash,
       date_validation: new Date().toISOString(),
       statut: "approuve",
       commentaire_validation: commentaire,
     })
+
+    const metadata =
+      typeof navigator !== "undefined"
+        ? { user_agent: navigator.userAgent }
+        : undefined
+    await supabase.from("audit_validation_ordres_mission").insert({
+      id_ordre_mission: id,
+      id_validateur: user.id,
+      action: "approuve_avec_signature",
+      signature_hash: signatureHash,
+      metadata: metadata ?? null,
+    })
+
+    return updated
   },
 
   /** URL signée pour l'image de signature (bucket privé). */
@@ -199,17 +223,30 @@ export const ordresMissionService = {
     return url
   },
 
-  // Rejeter un ordre
+  // Rejeter un ordre (avec entrée d'audit)
   async reject(id: string, commentaire: string) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) throw new Error("Utilisateur non authentifié")
 
-    return this.update(id, {
+    const updated = await this.update(id, {
       statut: "rejete",
       commentaire_validation: commentaire,
     })
+
+    const metadata =
+      typeof navigator !== "undefined"
+        ? { user_agent: navigator.userAgent }
+        : undefined
+    await supabase.from("audit_validation_ordres_mission").insert({
+      id_ordre_mission: id,
+      id_validateur: user.id,
+      action: "rejete",
+      metadata: metadata ?? null,
+    })
+
+    return updated
   },
 
   // Supprimer un ordre (seulement si brouillon)

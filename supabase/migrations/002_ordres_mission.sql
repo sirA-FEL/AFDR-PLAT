@@ -36,7 +36,8 @@ CREATE INDEX IF NOT EXISTS idx_ordres_mission_statut ON ordres_mission(statut);
 CREATE INDEX IF NOT EXISTS idx_ordres_mission_dates ON ordres_mission(date_debut, date_fin);
 CREATE INDEX IF NOT EXISTS idx_documents_ordre ON documents_ordres_mission(id_ordre_mission);
 
--- Trigger pour updated_at
+-- Trigger pour updated_at (idempotent)
+DROP TRIGGER IF EXISTS update_ordres_mission_updated_at ON ordres_mission;
 CREATE TRIGGER update_ordres_mission_updated_at
   BEFORE UPDATE ON ordres_mission
   FOR EACH ROW

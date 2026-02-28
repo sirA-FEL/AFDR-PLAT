@@ -23,6 +23,8 @@ export interface GeneratePdfOptions {
   demandeurNom?: string
   /** URL fetchable pour l'image de signature (à utiliser quand signature_validation_url est un chemin stockage). */
   signatureImageUrl?: string
+  /** Nom du validateur pour la section conformité (Validé par X le ...). */
+  validateurNom?: string
 }
 
 /**
@@ -136,6 +138,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
   }
 
   // ---- Section Validation (si présente) ----
+  const validateurNom = options?.validateurNom
   if (ordre.signature_validation_url || ordre.date_validation) {
     if (y > pageHeight - 70) {
       doc.addPage()
@@ -153,9 +156,25 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     doc.setFont("helvetica", "normal")
     doc.setFontSize(10)
     doc.setTextColor(0, 0, 0)
-    if (ordre.date_validation) {
+    if (validateurNom && ordre.date_validation) {
+      doc.text(`Validé par ${validateurNom} le ${formatDateFr(ordre.date_validation)}.`, margin, y)
+      y += 8
+    } else if (ordre.date_validation) {
       doc.text(`Date de validation : ${formatDateFr(ordre.date_validation)}`, margin, y)
       y += 8
+    }
+    if (ordre.signature_validation_hash) {
+      doc.setFontSize(8)
+      doc.setTextColor(80, 80, 80)
+      const hashLine = `Empreinte signature : SHA-256: ${ordre.signature_validation_hash}`
+      const hashLines = doc.splitTextToSize(hashLine, maxWidth)
+      hashLines.forEach((line: string) => {
+        doc.text(line, margin, y)
+        y += 5
+      })
+      doc.setFontSize(10)
+      doc.setTextColor(0, 0, 0)
+      y += 4
     }
     if (signatureUrl || ordre.signature_validation_url) {
       try {

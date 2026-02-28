@@ -39,6 +39,7 @@ export default function ValidationOrdresPage() {
   const [ordresEnAttente, setOrdresEnAttente] = useState<OrdreMissionDisplay[]>([])
   const [showApproveModal, setShowApproveModal] = useState(false)
   const [commentaireApprove, setCommentaireApprove] = useState("")
+  const [consentementApprove, setConsentementApprove] = useState(false)
   const signatureRef = useRef<SignatureCanvasRef>(null)
   const [loadingPdf, setLoadingPdf] = useState<string | null>(null)
 
@@ -119,6 +120,7 @@ export default function ValidationOrdresPage() {
       )
       setShowApproveModal(false)
       setCommentaireApprove("")
+      setConsentementApprove(false)
       signatureRef.current?.clear()
       setSelectedOrdre(null)
       setCommentaire("")
@@ -179,7 +181,7 @@ export default function ValidationOrdresPage() {
       <div>
         <h1 className="text-3xl font-bold text-[#2D7A32]">Validation des ordres de mission</h1>
         <p className="text-gray-600 mt-1">
-          Validez ou rejetez les demandes d'ordres de mission de votre équipe
+          Les ordres en statut « En attente » sont listés ici. En tant que validateur (Direction / MEAL), vous pouvez les approuver avec signature ou les rejeter.
         </p>
       </div>
 
@@ -401,6 +403,18 @@ export default function ValidationOrdresPage() {
               <p className="text-sm text-gray-600">
                 Signez ci-dessous pour valider l'ordre de mission de {selectedOrdre.demandeur.nom} ({selectedOrdre.destination}).
               </p>
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="consentement-approve"
+                  checked={consentementApprove}
+                  onChange={(e) => setConsentementApprove(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#2D7A32] focus:ring-[#2D7A32]"
+                />
+                <label htmlFor="consentement-approve" className="text-sm text-gray-700 cursor-pointer">
+                  Je certifie avoir pris connaissance de cet ordre de mission et l'approuver.
+                </label>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Commentaire (optionnel)</label>
                 <textarea
@@ -423,6 +437,7 @@ export default function ValidationOrdresPage() {
                     signatureRef.current?.clear()
                     setShowApproveModal(false)
                     setCommentaireApprove("")
+                    setConsentementApprove(false)
                   }}
                 >
                   Annuler
@@ -437,7 +452,7 @@ export default function ValidationOrdresPage() {
                 </Button>
                 <Button
                   onClick={handleConfirmApprove}
-                  disabled={loading}
+                  disabled={loading || !consentementApprove}
                   className="flex items-center gap-2"
                 >
                   <CheckCircle className="h-4 w-4" />
