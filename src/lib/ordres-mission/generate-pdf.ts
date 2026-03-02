@@ -101,7 +101,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     "CHEVALIER DE L’ORDRE DE L’ETALON",
   ]
   let headerY = y + 5
-  headerLines.forEach((line) => {
+  headerLines.forEach((line: string) => {
     doc.text(line, headerLeftX, headerY)
     headerY += 4
   })
@@ -157,7 +157,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     const valueMaxWidth = pageWidth - valueX - margin
     const lines = doc.splitTextToSize(value || "-", valueMaxWidth)
     let localY = y
-    lines.forEach((line) => {
+    lines.forEach((line: string) => {
       doc.text(line, valueX, localY)
       localY += 5
     })
@@ -182,7 +182,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
   doc.setFont("helvetica", "normal")
   const objetLines = doc.splitTextToSize(objet || "-", pageWidth - valueX - margin)
   let objetY = y
-  objetLines.forEach((line) => {
+  objetLines.forEach((line: string) => {
     doc.text(line, valueX, objetY)
     objetY += 5
   })
@@ -211,7 +211,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     y += 5
     doc.setFont("helvetica", "normal")
     const activitesLines = doc.splitTextToSize(ordre.activites_prevues, maxWidth)
-    activitesLines.forEach((line) => {
+    activitesLines.forEach((line: string) => {
       doc.text(line, margin, y)
       y += 5
     })
@@ -305,7 +305,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     if (ordre.signature_validation_hash) {
       const hashLine = `Empreinte de la signature (SHA-256) : ${ordre.signature_validation_hash}`
       const hashLines = doc.splitTextToSize(hashLine, maxWidth)
-      hashLines.forEach((line) => {
+      hashLines.forEach((line: string) => {
         doc.text(line, margin, y)
         y += 4
       })
@@ -315,7 +315,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
       doc.text("Commentaire du valideur :", margin, y)
       y += 4
       const commLines = doc.splitTextToSize(ordre.commentaire_validation, maxWidth)
-      commLines.forEach((line) => {
+      commLines.forEach((line: string) => {
         doc.text(line, margin, y)
         y += 4
       })
