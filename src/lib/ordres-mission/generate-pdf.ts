@@ -61,6 +61,11 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     options?.signatureImageUrl ??
     (ordre.signature_validation_url?.startsWith("http") ? ordre.signature_validation_url : undefined)
 
+  const numeroOrdre = buildNumeroOrdre(ordre)
+
+  const GREEN = { r: 45, g: 122, b: 50 }
+  const LIGHT_GREY = { r: 230, g: 230, b: 230 }
+
   const { jsPDF } = await import("jspdf")
   const doc = new jsPDF()
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -108,18 +113,34 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
 
   y = headerY + 4
 
-  // ---- Lieu et date + numéro à droite ----
+  // ---- Lieu et date + numéro dans des cartouches gris ----
   const lieu = ordre.lieu_emission || "Ouahigouya"
   const dateEmissionSource = ordre.date_creation || ordre.date_debut || ordre.date_fin || new Date().toISOString()
   const dateEmission = formatDateLongFr(dateEmissionSource)
+  const dateText = `${lieu}, le ${dateEmission}`
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(10)
-  doc.text(`${lieu}, le ${dateEmission}`, pageWidth - margin, y, { align: "right" })
-  y += 6
-  doc.text(buildNumeroOrdre(ordre), pageWidth - margin, y, { align: "right" })
 
-  y += 12
+  const refPaddingX = 3
+  const refHeight = 7
+  const numeroTexte = numeroOrdre
+  const numeroWidth = doc.getTextWidth(numeroTexte) + refPaddingX * 2
+  const dateWidth = doc.getTextWidth(dateText) + refPaddingX * 2
+  const refY = y
+
+  // Cartouche numéro (gauche)
+  doc.setFillColor(LIGHT_GREY.r, LIGHT_GREY.g, LIGHT_GREY.b)
+  doc.setDrawColor(0, 0, 0)
+  doc.rect(margin, refY - refHeight + 2, numeroWidth, refHeight, "FD")
+  doc.text(numeroTexte, margin + refPaddingX, refY)
+
+  // Cartouche lieu + date (droite)
+  const dateBoxX = pageWidth - margin - dateWidth
+  doc.rect(dateBoxX, refY - refHeight + 2, dateWidth, refHeight, "FD")
+  doc.text(dateText, dateBoxX + refPaddingX, refY)
+
+  y += 10
 
   // Ligne séparatrice horizontale
   doc.setDrawColor(0, 0, 0)
@@ -132,15 +153,16 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
   const boxX = (pageWidth - boxWidth) / 2
   const boxHeight = 18
 
-  doc.setDrawColor(45, 122, 50)
-  doc.setLineWidth(0.6)
-  doc.roundedRect(boxX, y, boxWidth, boxHeight, 2, 2, "S")
+  doc.setDrawColor(GREEN.r, GREEN.g, GREEN.b)
+  doc.setFillColor(LIGHT_GREY.r, LIGHT_GREY.g, LIGHT_GREY.b)
+  doc.setLineWidth(0.8)
+  doc.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, "FD")
 
   doc.setFont("helvetica", "bold")
   doc.setFontSize(13)
   doc.text("ORDRE DE MISSION", boxX + boxWidth / 2, y + 7, { align: "center" })
   doc.setFontSize(11)
-  doc.text(buildNumeroOrdre(ordre), boxX + boxWidth / 2, y + 13, { align: "center" })
+  doc.text(numeroOrdre, boxX + boxWidth / 2, y + 13, { align: "center" })
 
   y += boxHeight + 12
 
@@ -153,6 +175,10 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     doc.setFont("helvetica", "bold")
     doc.setFontSize(10)
     doc.text(label, labelX, y)
+    // Souligneur simple sous le libellé, proche du modèle Word.
+    const labelWidth = doc.getTextWidth(label)
+    doc.setLineWidth(0.3)
+    doc.line(labelX, y + 1, labelX + labelWidth, y + 1)
     doc.setFont("helvetica", "normal")
     const valueMaxWidth = pageWidth - valueX - margin
     const lines: string[] = doc.splitTextToSize(value || "-", valueMaxWidth) as string[]
@@ -197,9 +223,16 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
   ligneSimple("DATE :", dateValue)
 
   const tableBottom = y + 2
-  doc.setDrawColor(0, 0, 0)
+  const tableHeight = tableBottom - tableTop + 10
+
+  // Cadre principal du tableau (épais) + légère \"ombre\" à droite, pour se rapprocher du modèle.
+  doc.setDrawColor(160, 160, 160)
   doc.setLineWidth(0.5)
-  doc.rect(margin, tableTop - 6, maxWidth, tableBottom - tableTop + 10)
+  doc.rect(margin + 1.5, tableTop - 4, maxWidth, tableHeight, "S")
+
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(1)
+  doc.rect(margin, tableTop - 6, maxWidth, tableHeight, "S")
 
   y = tableBottom + 18
 
@@ -227,35 +260,46 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     y += 10
   }
 
-  // ---- Bloc Directeur Exécutif + signature ----
+  // ---- Bloc Directeur Exécutif pleine largeur + signature ----
   if (y > pageHeight - 60) {
     doc.addPage()
     y = 30
   }
 
-  const sigBoxWidth = 70
-  const sigBoxHeight = 38
-  const sigBoxX = pageWidth - margin - sigBoxWidth
-  const sigBoxY = y
+  const dirBoxWidth = maxWidth
+  const dirBoxX = margin
+  const dirTitleHeight = 14
+  const dirTitleY = y
 
+  // Bandeau \"Directeur Exécutif\"
   doc.setDrawColor(0, 0, 0)
-  doc.rect(sigBoxX, sigBoxY, sigBoxWidth, sigBoxHeight)
+  doc.setFillColor(LIGHT_GREY.r, LIGHT_GREY.g, LIGHT_GREY.b)
+  doc.setLineWidth(0.8)
+  doc.rect(dirBoxX, dirTitleY, dirBoxWidth, dirTitleHeight, "FD")
 
   doc.setFont("helvetica", "bold")
-  doc.setFontSize(10)
-  doc.text("Directeur Exécutif", sigBoxX + sigBoxWidth / 2, sigBoxY + 7, { align: "center" })
+  doc.setFontSize(11)
+  doc.text("Directeur Exécutif", dirBoxX + dirBoxWidth / 2, dirTitleY + 9, { align: "center" })
 
-  // Signature manuscrite dans le bloc (si disponible)
+  // Zone de signature et du nom sous le bandeau
+  const signAreaHeight = 30
+  const signAreaY = dirTitleY + dirTitleHeight
+
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.6)
+  doc.rect(dirBoxX, signAreaY, dirBoxWidth, signAreaHeight, "S")
+
+  // Signature manuscrite dans la zone centrale (si disponible)
   if (signatureUrl || ordre.signature_validation_url) {
     try {
       const urlToLoad =
         signatureUrl || (ordre.signature_validation_url!.startsWith("http") ? ordre.signature_validation_url : undefined)
       if (urlToLoad) {
         const imgData = await loadImageAsDataUrl(urlToLoad)
-        const sigW = sigBoxWidth - 10
-        const sigH = 16
-        const sigX = sigBoxX + (sigBoxWidth - sigW) / 2
-        const sigY = sigBoxY + 10
+        const sigW = dirBoxWidth / 2
+        const sigH = 14
+        const sigX = dirBoxX + (dirBoxWidth - sigW) / 2
+        const sigY = signAreaY + 4
         doc.addImage(imgData, "PNG", sigX, sigY, sigW, sigH)
       }
     } catch {
@@ -265,16 +309,16 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(10)
-  doc.text("Amidou OUATTARA", sigBoxX + sigBoxWidth / 2, sigBoxY + sigBoxHeight - 8, { align: "center" })
+  doc.text("Amidou OUATTARA", dirBoxX + dirBoxWidth / 2, signAreaY + signAreaHeight - 9, { align: "center" })
   doc.setFontSize(8)
   doc.text(
     "Chevalier de l’ordre du mérite du développement rural",
-    sigBoxX + sigBoxWidth / 2,
-    sigBoxY + sigBoxHeight - 3,
+    dirBoxX + dirBoxWidth / 2,
+    signAreaY + signAreaHeight - 3,
     { align: "center" }
   )
 
-  y = sigBoxY + sigBoxHeight + 10
+  y = signAreaY + signAreaHeight + 10
 
   // ---- Informations de conformité (validation numérique) ----
   const validateurNom = options?.validateurNom
