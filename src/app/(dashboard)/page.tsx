@@ -549,7 +549,7 @@ export default function DashboardPage() {
             <Link href="/grh/employes">
               <Button variant="outline" className="w-full h-20 flex flex-col items-center justify-center gap-2">
                 <Users className="h-6 w-6" />
-                <span>Employés</span>
+                <span>Membres du personnel</span>
               </Button>
             </Link>
             <Link href="/finance">

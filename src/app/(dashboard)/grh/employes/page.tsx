@@ -63,7 +63,7 @@ export default function EmployesPage() {
     try {
       const { employesService } = await import("@/lib/supabase/services")
 
-      // Créer l'employé (crée aussi le profil utilisateur)
+      // Créer le membre du personnel (crée aussi le profil utilisateur)
       const employe = await employesService.create({
         nom: formData.nom,
         prenom: formData.prenom,
@@ -79,7 +79,7 @@ export default function EmployesPage() {
         await employesService.uploadPhoto(employe.id, formData.photo)
       }
 
-      alert("Fiche employé créée avec succès")
+      alert("Fiche membre du personnel créée avec succès")
       setShowForm(false)
       setFormData({
         nom: "",
@@ -127,7 +127,7 @@ export default function EmployesPage() {
       setEmployes(transformed)
     } catch (error: any) {
       console.error("Erreur:", error)
-      alert("Erreur lors du chargement des employés")
+      alert("Erreur lors du chargement des membres du personnel")
     }
   }
 
@@ -136,7 +136,7 @@ export default function EmployesPage() {
   }, [searchTerm])
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Êtes-vous sûr de vouloir supprimer cet employé ?")) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer ce membre du personnel ?")) {
       return
     }
 
@@ -144,7 +144,7 @@ export default function EmployesPage() {
       const { employesService } = await import("@/lib/supabase/services")
       await employesService.delete(id)
       await loadEmployes()
-      alert("Employé supprimé avec succès")
+      alert("Membre du personnel supprimé avec succès")
     } catch (error: any) {
       console.error("Erreur:", error)
       alert(error.message || "Erreur lors de la suppression")
@@ -162,12 +162,12 @@ export default function EmployesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[#2D7A32]">Employés</h1>
-          <p className="text-gray-600 mt-1">Gérez les fiches des employés</p>
+          <h1 className="text-3xl font-bold text-[#2D7A32]">Membres du personnel</h1>
+          <p className="text-gray-600 mt-1">Gérez les fiches des membres du personnel</p>
         </div>
         <Button size="lg" onClick={() => setShowForm(true)} className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
-          Nouvel employé
+          Nouveau membre du personnel
         </Button>
       </div>
 
@@ -175,7 +175,7 @@ export default function EmployesPage() {
       {showForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Nouvel employé</CardTitle>
+            <CardTitle>Nouveau membre du personnel</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -326,21 +326,21 @@ export default function EmployesPage() {
       {/* Tableau */}
       <Card>
         <CardHeader>
-          <CardTitle>Liste des employés</CardTitle>
+          <CardTitle>Liste des membres du personnel</CardTitle>
         </CardHeader>
         <CardContent>
           {filteredEmployes.length === 0 ? (
             <div className="text-center py-12">
               <User className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg">Aucun employé trouvé</p>
+              <p className="text-gray-500 text-lg">Aucun membre du personnel trouvé</p>
               <p className="text-gray-400 text-sm mt-2">
                 {employes.length === 0
-                  ? "Créez votre premier employé pour commencer"
+                  ? "Créez la première fiche de membre du personnel pour commencer"
                   : "Aucun résultat ne correspond à votre recherche"}
               </p>
               {employes.length === 0 && (
                 <Button onClick={() => setShowForm(true)} className="mt-4">
-                  Créer un employé
+                  Créer une fiche
                 </Button>
               )}
             </div>

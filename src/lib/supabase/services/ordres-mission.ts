@@ -8,6 +8,12 @@ export interface OrdreMission {
   motif: string
   activites_prevues?: string
   budget_estime?: number
+  /** Noms/prénoms + fonctions des exécutants tels qu'affichés dans l'ordre (texte libre, potentiellement multiple). */
+  executants?: string
+  /** Lieu d'émission / départ (ex. Ouahigouya). */
+  lieu_emission?: string
+  /** Moyen de transport principal (ex. Moto, véhicule de service). */
+  moyen_transport?: string
   statut: "brouillon" | "en_attente" | "approuve" | "rejete" | "en_cours" | "termine"
   id_demandeur: string
   id_validateur_chef?: string
@@ -48,6 +54,9 @@ export const ordresMissionService = {
       p_motif: data.motif,
       p_activites_prevues: data.activites_prevues ?? null,
       p_budget_estime: data.budget_estime ?? null,
+      p_executants: data.executants ?? null,
+      p_lieu_emission: data.lieu_emission ?? null,
+      p_moyen_transport: data.moyen_transport ?? null,
     })
 
     if (error) {

@@ -15,6 +15,9 @@ export default function NouvelOrdreMissionPage() {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     destination: "",
+    executants: "",
+    lieuEmission: "Ouahigouya",
+    moyenTransport: "",
     dateDebut: "",
     dateFin: "",
     motif: "",
@@ -33,6 +36,9 @@ export default function NouvelOrdreMissionPage() {
       // Créer l'ordre de mission
       const ordre = await ordresMissionService.create({
         destination: formData.destination,
+        executants: formData.executants || undefined,
+        lieu_emission: formData.lieuEmission || undefined,
+        moyen_transport: formData.moyenTransport || undefined,
         date_debut: formData.dateDebut,
         date_fin: formData.dateFin,
         motif: formData.motif,
@@ -119,11 +125,56 @@ export default function NouvelOrdreMissionPage() {
               </label>
               <Input
                 type="text"
-                placeholder="Ville, pays"
+                placeholder="Ville(s), pays (ex. Arbollé, Yako, Gourcy)"
                 value={formData.destination}
                 onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
                 required
               />
+            </div>
+
+            {/* Exécutants */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Exécutants <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                placeholder="Noms et fonctions, par exemple : OUEDRAOGO Abdou Salam, Animateur ; ..."
+                value={formData.executants}
+                onChange={(e) => setFormData({ ...formData, executants: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-[#2D7A32]/20 rounded-md focus:outline-none focus:ring-2 focus:ring-[#2D7A32] focus:border-transparent resize-none"
+                required
+              />
+            </div>
+
+            {/* Lieu d'émission / Départ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Lieu de départ <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Ouahigouya"
+                  value={formData.lieuEmission}
+                  onChange={(e) => setFormData({ ...formData, lieuEmission: e.target.value })}
+                  required
+                />
+              </div>
+
+              {/* Moyen de transport */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Moyen de transport <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Moto, véhicule de service..."
+                  value={formData.moyenTransport}
+                  onChange={(e) => setFormData({ ...formData, moyenTransport: e.target.value })}
+                  required
+                />
+              </div>
             </div>
 
             {/* Dates */}

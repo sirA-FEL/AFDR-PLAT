@@ -16,6 +16,9 @@ import { SignatureCanvas, type SignatureCanvasRef } from "@/components/ui/signat
 interface OrdreMissionDisplay {
   id: string
   destination: string
+  executants?: string
+  lieuEmission?: string
+  moyenTransport?: string
   dateDebut: string
   dateFin: string
   motif: string
@@ -69,9 +72,16 @@ export default function ValidationOrdresPage() {
             .maybeSingle()
 
           const nomComplet = [profil?.prenom, profil?.nom].filter(Boolean).join(" ") || "Inconnu"
+          const executants =
+            ordre.executants && ordre.executants.trim().length > 0
+              ? ordre.executants
+              : nomComplet
           return {
             id: ordre.id,
             destination: ordre.destination,
+            executants,
+            lieuEmission: ordre.lieu_emission ?? "Ouahigouya",
+            moyenTransport: ordre.moyen_transport ?? undefined,
             dateDebut: ordre.date_debut,
             dateFin: ordre.date_fin,
             motif: ordre.motif,
@@ -262,10 +272,16 @@ export default function ValidationOrdresPage() {
                     <User className="h-4 w-4" />
                     Demandeur
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 space-y-1">
                     <div className="font-medium">{selectedOrdre.demandeur.nom}</div>
                     <div>{selectedOrdre.demandeur.email}</div>
                     <div>{selectedOrdre.demandeur.departement}</div>
+                    <div className="pt-2">
+                      <span className="font-semibold text-gray-700">Exécutants : </span>
+                      <span className="text-gray-900 whitespace-pre-wrap">
+                        {selectedOrdre.executants}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -277,6 +293,10 @@ export default function ValidationOrdresPage() {
                       Destination
                     </div>
                     <div className="text-gray-900">{selectedOrdre.destination}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      <span className="font-semibold">Lieu de départ : </span>
+                      {selectedOrdre.lieuEmission}
+                    </div>
                   </div>
                   <div>
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -287,6 +307,12 @@ export default function ValidationOrdresPage() {
                       {new Date(selectedOrdre.dateDebut).toLocaleDateString("fr-FR")} au{" "}
                       {new Date(selectedOrdre.dateFin).toLocaleDateString("fr-FR")}
                     </div>
+                    {selectedOrdre.moyenTransport && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        <span className="font-semibold">Moyen de transport : </span>
+                        {selectedOrdre.moyenTransport}
+                      </div>
+                    )}
                   </div>
                 </div>
 
