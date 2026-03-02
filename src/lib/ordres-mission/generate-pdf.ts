@@ -155,7 +155,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     doc.text(label, labelX, y)
     doc.setFont("helvetica", "normal")
     const valueMaxWidth = pageWidth - valueX - margin
-    const lines = doc.splitTextToSize(value || "-", valueMaxWidth)
+    const lines: string[] = doc.splitTextToSize(value || "-", valueMaxWidth) as string[]
     let localY = y
     lines.forEach((line: string) => {
       doc.text(line, valueX, localY)
@@ -180,7 +180,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
   doc.setFontSize(10)
   doc.text("OBJET :", labelX, y)
   doc.setFont("helvetica", "normal")
-  const objetLines = doc.splitTextToSize(objet || "-", pageWidth - valueX - margin)
+  const objetLines: string[] = doc.splitTextToSize(objet || "-", pageWidth - valueX - margin) as string[]
   let objetY = y
   objetLines.forEach((line: string) => {
     doc.text(line, valueX, objetY)
@@ -304,7 +304,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
 
     if (ordre.signature_validation_hash) {
       const hashLine = `Empreinte de la signature (SHA-256) : ${ordre.signature_validation_hash}`
-      const hashLines = doc.splitTextToSize(hashLine, maxWidth)
+      const hashLines: string[] = doc.splitTextToSize(hashLine, maxWidth) as string[]
       hashLines.forEach((line: string) => {
         doc.text(line, margin, y)
         y += 4
@@ -314,7 +314,7 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     if (ordre.commentaire_validation) {
       doc.text("Commentaire du valideur :", margin, y)
       y += 4
-      const commLines = doc.splitTextToSize(ordre.commentaire_validation, maxWidth)
+      const commLines: string[] = doc.splitTextToSize(ordre.commentaire_validation, maxWidth) as string[]
       commLines.forEach((line: string) => {
         doc.text(line, margin, y)
         y += 4

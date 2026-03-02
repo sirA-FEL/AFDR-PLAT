@@ -192,24 +192,19 @@ export default function OrdreMissionDetailPage() {
     if (!ordre) return
     setGeneratingPdf(true)
     try {
-      if (ordre.pdf_url) {
-        const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
-        window.open(signedUrl, "_blank")
-        setGeneratingPdf(false)
-        return
-      }
+      // Toujours régénérer le PDF à partir des données actuelles (signature, validation, etc.)
       const ordreFull = await ordresMissionService.getById(ordre.id)
       const { generateOrdreMissionPdf } = await import("@/lib/ordres-mission/generate-pdf")
       const opts: { demandeurNom?: string; signatureImageUrl?: string; validateurNom?: string } = { demandeurNom }
-      if (ordre.signature_validation_url) {
-        opts.signatureImageUrl = await ordresMissionService.getSignedSignatureUrl(ordre.id)
+      if (ordreFull.signature_validation_url) {
+        opts.signatureImageUrl = await ordresMissionService.getSignedSignatureUrl(ordreFull.id)
         opts.validateurNom = validateurNom
       }
       const blob = await generateOrdreMissionPdf(ordreFull, opts)
-      const pdfPath = await ordresMissionService.uploadPdf(ordre.id, blob)
-      await ordresMissionService.setPdfUrl(ordre.id, pdfPath)
+      const pdfPath = await ordresMissionService.uploadPdf(ordreFull.id, blob)
+      await ordresMissionService.setPdfUrl(ordreFull.id, pdfPath)
       setOrdre({ ...ordre, pdf_url: pdfPath })
-      const signedUrl = await ordresMissionService.getSignedPdfUrl(ordre.id)
+      const signedUrl = await ordresMissionService.getSignedPdfUrl(ordreFull.id)
       window.open(signedUrl, "_blank")
     } catch (err) {
       console.error(err)
