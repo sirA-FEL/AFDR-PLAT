@@ -47,9 +47,11 @@ export default function SetupPage() {
               Cette page est en cours de configuration.
             </p>
             <div className="pt-4">
-              <Button asChild className="w-full">
-                <Link href="/login">Retour à la connexion</Link>
-              </Button>
+              <Link href="/login" className="block">
+                <Button className="w-full">
+                  Retour à la connexion
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -31,12 +31,16 @@ export default function AccesNonAutorisePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <Button asChild>
-            <Link href="/">Retour au tableau de bord</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/profil">Mon profil</Link>
-          </Button>
+          <Link href="/" className="block">
+            <Button className="w-full">
+              Retour au tableau de bord
+            </Button>
+          </Link>
+          <Link href="/profil" className="block">
+            <Button variant="outline" className="w-full">
+              Mon profil
+            </Button>
+          </Link>
         </CardContent>
       </Card>
     </motion.div>

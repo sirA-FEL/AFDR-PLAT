@@ -48,7 +48,51 @@ export default function ActivitesPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+
+    // #region agent log
+    fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "1e9809",
+      },
+      body: JSON.stringify({
+        sessionId: "1e9809",
+        runId: "pre-fix-1",
+        hypothesisId: "H1",
+        location: "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect",
+        message: "ActivitesPage roles loading started",
+        data: {
+          hasSupabase: !!supabase,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+
+    supabase.auth.getUser().then(
+      ({ data: { user } }: { data: { user: { id: string } | null } }) => {
+      // #region agent log
+      fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Debug-Session-Id": "1e9809",
+        },
+        body: JSON.stringify({
+          sessionId: "1e9809",
+          runId: "pre-fix-1",
+          hypothesisId: "H1",
+          location: "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect.getUser",
+          message: "ActivitesPage got user from Supabase",
+          data: {
+            hasUser: !!user,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {})
+      // #endregion
+
       if (!user?.id) {
         setRoles([])
         return
@@ -57,7 +101,32 @@ export default function ActivitesPage() {
         .from("roles_utilisateurs")
         .select("role")
         .eq("id_utilisateur", user.id)
-        .then(({ data }) => setRoles((data ?? []).map((r: { role: string }) => r.role)))
+        .then(({ data }: { data: { role: string }[] | null }) => {
+          // #region agent log
+          fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Debug-Session-Id": "1e9809",
+            },
+            body: JSON.stringify({
+              sessionId: "1e9809",
+              runId: "pre-fix-1",
+              hypothesisId: "H1",
+              location:
+                "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect.rolesQuery",
+              message: "ActivitesPage loaded roles for user",
+              data: {
+                hasData: Array.isArray(data),
+                rolesCount: Array.isArray(data) ? data.length : 0,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+
+          setRoles((data ?? []).map((r: { role: string }) => r.role))
+        })
     })
   }, [])
 

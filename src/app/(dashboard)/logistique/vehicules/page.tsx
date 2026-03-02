@@ -81,7 +81,7 @@ export default function ParcAutomobilePage() {
         .from("roles_utilisateurs")
         .select("role")
         .eq("id_utilisateur", user.id)
-      setRoles((rolesData ?? []).map((r) => r.role))
+      setRoles((rolesData ?? []).map((r: { role: string }) => r.role))
     } catch {
       setLoading(false)
     } finally {

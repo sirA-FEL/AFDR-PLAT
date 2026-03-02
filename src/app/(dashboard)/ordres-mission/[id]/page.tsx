@@ -45,17 +45,23 @@ export default function OrdreMissionDetailPage() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id ?? null)
-      if (!user?.id) {
-        setAuthReady(true)
-        return
-      }
-      supabase.from("roles_utilisateurs").select("role").eq("id_utilisateur", user.id).then(({ data }) => {
-        setRoles((data ?? []).map((r) => r.role))
-        setAuthReady(true)
+    supabase.auth
+      .getUser()
+      .then(({ data: { user } }: { data: { user: { id: string } | null } }) => {
+        setCurrentUserId(user?.id ?? null)
+        if (!user?.id) {
+          setAuthReady(true)
+          return
+        }
+        supabase
+          .from("roles_utilisateurs")
+          .select("role")
+          .eq("id_utilisateur", user.id)
+          .then(({ data }: { data: { role: string }[] | null }) => {
+            setRoles((data ?? []).map((r) => r.role))
+            setAuthReady(true)
+          })
       })
-    })
   }, [])
 
   useEffect(() => {

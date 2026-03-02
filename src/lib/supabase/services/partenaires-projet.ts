@@ -21,7 +21,7 @@ export const partenairesProjetService = {
       .eq("actif", true)
     if (error) throw error
     if (!rows?.length) return []
-    const ids = rows.map((r) => r.id_projet)
+    const ids = rows.map((r: { id_projet: string }) => r.id_projet)
     const { data: projets, error: err2 } = await supabase
       .from("projets")
       .select("*")
@@ -76,15 +76,17 @@ export const partenairesProjetService = {
       .eq("role", "PART")
     if (errRoles) throw errRoles
     if (!roles?.length) return []
-    const ids = roles.map((r) => r.id_utilisateur)
+    const ids = roles.map((r: { id_utilisateur: string }) => r.id_utilisateur)
     const { data: profils } = await supabase
       .from("profils")
       .select("id, nom, prenom, email")
       .in("id", ids)
-    return (profils ?? []).map((p) => ({
-      id: p.id,
-      nom: [p.prenom, p.nom].filter(Boolean).join(" ") || p.email,
-      email: p.email,
-    }))
+    return (profils ?? []).map(
+      (p: { id: string; nom: string | null; prenom: string | null; email: string }) => ({
+        id: p.id,
+        nom: [p.prenom, p.nom].filter(Boolean).join(" ") || p.email,
+        email: p.email,
+      })
+    )
   },
 }

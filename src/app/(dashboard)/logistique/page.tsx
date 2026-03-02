@@ -29,8 +29,11 @@ export default function LogistiquePage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: rolesData } = await supabase.from("roles_utilisateurs").select("role").eq("id_utilisateur", user.id)
-      setRoles((rolesData ?? []).map((r) => r.role))
+      const { data: rolesData } = await supabase
+        .from("roles_utilisateurs")
+        .select("role")
+        .eq("id_utilisateur", user.id)
+      setRoles((rolesData ?? []).map((r: { role: string }) => r.role))
     } catch {
       // ignore
     }

@@ -4,7 +4,7 @@
 // La page sera rendue dynamiquement à l'exécution, avec les variables d'environnement Supabase disponibles.
 export const dynamic = "force-dynamic"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -15,7 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { scaleIn, transitionBounce } from "@/lib/utils/motion-variants"
 import { LogoAfdr } from "@/components/ui/logo-afdr"
 
-export default function LoginPage() {
+function LoginPageInner() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -226,4 +226,10 @@ export default function LoginPage() {
   )
 }
 
-
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
