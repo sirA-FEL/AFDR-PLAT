@@ -180,7 +180,15 @@ export const ordresMissionService = {
     const { error: uploadError } = await supabase.storage
       .from("documents-ordre-mission")
       .upload(path, signatureBlob, { contentType: "image/png", upsert: false })
-    if (uploadError) throw new Error(uploadError.message || "Échec de l'upload de la signature")
+
+    // Si le fichier existe déjà (ancien essai), on réutilise la ressource au lieu d'échouer.
+    if (uploadError) {
+      const msg = uploadError.message || ""
+      if (!msg.toLowerCase().includes("resource already exists")) {
+        throw new Error(msg || "Échec de l'upload de la signature")
+      }
+      // Sinon : le fichier est déjà présent dans le bucket, on continue en liant l'ordre à ce chemin.
+    }
 
     const updated = await this.update(id, {
       id_validateur_direction: user.id,

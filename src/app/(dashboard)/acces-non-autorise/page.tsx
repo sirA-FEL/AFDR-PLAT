@@ -31,6 +31,9 @@ export default function AccesNonAutorisePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-[#757575] mb-1">
+            Certains espaces, comme les Projets MEAL, sont réservés aux rôles PM, MEAL et Direction.
+          </p>
           <Link href="/" className="block">
             <Button className="w-full">
               Retour au tableau de bord

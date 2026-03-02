@@ -3,12 +3,14 @@
 export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
 import { TrendingUp, Plus, Search, Filter, Calendar, DollarSign, User } from "lucide-react"
+import { hasRole } from "@/lib/auth/niveau-acces"
 
 interface Projet {
   id: string
@@ -23,15 +25,67 @@ interface Projet {
 }
 
 export default function ProjetsMEALPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState("")
   const [filterResponsable, setFilterResponsable] = useState<string>("all")
   const [loading, setLoading] = useState(true)
   const [projets, setProjets] = useState<Projet[]>([])
   const [responsables, setResponsables] = useState<Array<{ id: string; nom: string }>>([])
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user?.id) {
+          if (!cancelled) {
+            setAuthorized(false)
+            router.replace("/acces-non-autorise")
+          }
+          return
+        }
+
+        const { data: rolesData, error } = await supabase
+          .from("roles_utilisateurs")
+          .select("role")
+          .eq("id_utilisateur", user.id)
+
+        if (error) throw error
+
+        const roles = (rolesData ?? []).map((r: { role: string }) => r.role)
+        const allowed = hasRole(roles, ["PM", "MEAL", "DIR"])
+
+        if (!cancelled) {
+          setAuthorized(allowed)
+          if (!allowed) {
+            router.replace("/acces-non-autorise")
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthorized(false)
+          router.replace("/acces-non-autorise")
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [router])
+
+  useEffect(() => {
+    if (authorized !== true) return
     loadProjets()
-  }, [filterResponsable])
+  }, [filterResponsable, authorized])
 
   const loadProjets = async () => {
     setLoading(true)
@@ -104,6 +158,20 @@ export default function ProjetsMEALPage() {
     const total = fin.getTime() - debut.getTime()
     const elapsed = today.getTime() - debut.getTime()
     return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)))
+  }
+
+  if (authorized === false) {
+    return null
+  }
+
+  if (authorized === null) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-gray-500">Vérification des droits d’accès...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

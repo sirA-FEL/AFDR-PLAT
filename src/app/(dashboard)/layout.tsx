@@ -33,7 +33,7 @@ const navigation = [
   { name: "Tableau de bord", href: "/", icon: LayoutDashboard },
   { name: "Ordres de Mission", href: "/ordres-mission", icon: FileText },
   { name: "Validation des ordres", href: "/ordres-mission/validation", icon: ClipboardCheck, roles: ["DIR", "MEAL"] as const },
-  { name: "Projets MEAL", href: "/meal/projets", icon: TrendingUp },
+  { name: "Projets MEAL", href: "/meal/projets", icon: TrendingUp, roles: ["PM", "MEAL", "DIR"] as const },
   { name: "GRH", href: "/grh/employes", icon: Users },
   { name: "Finance", href: "/finance", icon: DollarSign },
   { name: "Logistique", href: "/logistique", icon: Package },

@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,104 +37,51 @@ const initialForm = {
 
 export default function ActivitesPage() {
   const params = useParams()
+  const router = useRouter()
   const [roles, setRoles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activites, setActivites] = useState<Activite[]>([])
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState(initialForm)
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   const canCreateActivities = hasRole(roles, ["MEAL", "PM", "DIR"])
 
   useEffect(() => {
     const supabase = createClient()
 
-    // #region agent log
-    fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "1e9809",
-      },
-      body: JSON.stringify({
-        sessionId: "1e9809",
-        runId: "pre-fix-1",
-        hypothesisId: "H1",
-        location: "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect",
-        message: "ActivitesPage roles loading started",
-        data: {
-          hasSupabase: !!supabase,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-
-    supabase.auth.getUser().then(
-      ({ data: { user } }: { data: { user: { id: string } | null } }) => {
-      // #region agent log
-      fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Debug-Session-Id": "1e9809",
-        },
-        body: JSON.stringify({
-          sessionId: "1e9809",
-          runId: "pre-fix-1",
-          hypothesisId: "H1",
-          location: "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect.getUser",
-          message: "ActivitesPage got user from Supabase",
-          data: {
-            hasUser: !!user,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-
-      if (!user?.id) {
-        setRoles([])
-        return
-      }
-      supabase
-        .from("roles_utilisateurs")
-        .select("role")
-        .eq("id_utilisateur", user.id)
-        .then(({ data }: { data: { role: string }[] | null }) => {
-          // #region agent log
-          fetch("http://127.0.0.1:7620/ingest/d6790671-a717-41e3-9440-bddc026171f4", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Debug-Session-Id": "1e9809",
-            },
-            body: JSON.stringify({
-              sessionId: "1e9809",
-              runId: "pre-fix-1",
-              hypothesisId: "H1",
-              location:
-                "src/app/(dashboard)/meal/projets/[id]/activites/page.tsx:useEffect.rolesQuery",
-              message: "ActivitesPage loaded roles for user",
-              data: {
-                hasData: Array.isArray(data),
-                rolesCount: Array.isArray(data) ? data.length : 0,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
-
-          setRoles((data ?? []).map((r: { role: string }) => r.role))
-        })
-    })
-  }, [])
+    supabase.auth
+      .getUser()
+      .then(
+        ({ data: { user } }: { data: { user: { id: string } | null } }) => {
+          if (!user?.id) {
+            setRoles([])
+            setAuthorized(false)
+            router.replace("/acces-non-autorise")
+            return
+          }
+          supabase
+            .from("roles_utilisateurs")
+            .select("role")
+            .eq("id_utilisateur", user.id)
+            .then(({ data }: { data: { role: string }[] | null }) => {
+              const userRoles = (data ?? []).map((r: { role: string }) => r.role)
+              setRoles(userRoles)
+              const allowed = hasRole(userRoles, ["MEAL", "PM", "DIR"])
+              setAuthorized(allowed)
+              if (!allowed) {
+                router.replace("/acces-non-autorise")
+              }
+            })
+        }
+      )
+  }, [router])
 
   useEffect(() => {
-    if (params.id) {
-      loadActivites()
-    }
-  }, [params.id])
+    if (authorized !== true || !params.id) return
+    loadActivites()
+  }, [params.id, authorized])
 
   const loadActivites = async () => {
     setLoading(true)
@@ -192,6 +139,20 @@ export default function ActivitesPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (authorized === false) {
+    return null
+  }
+
+  if (authorized === null) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <p className="text-gray-500">Vérification des droits d’accès...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

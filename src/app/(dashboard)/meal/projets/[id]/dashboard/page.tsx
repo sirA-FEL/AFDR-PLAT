@@ -11,6 +11,7 @@ import { motion } from "framer-motion"
 import { slideUp, transitionNormal } from "@/lib/utils/motion-variants"
 import { ArrowLeft, TrendingUp, DollarSign, BarChart3, Target } from "lucide-react"
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { hasRole } from "@/lib/auth/niveau-acces"
 
 export default function DashboardPage() {
   const params = useParams()
@@ -19,12 +20,61 @@ export default function DashboardPage() {
   const [projet, setProjet] = useState<any>(null)
   const [activites, setActivites] = useState<any[]>([])
   const [indicateurs, setIndicateurs] = useState<any[]>([])
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (params.id) {
-      loadData()
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user?.id) {
+          if (!cancelled) {
+            setAuthorized(false)
+            router.replace("/acces-non-autorise")
+          }
+          return
+        }
+
+        const { data: rolesData, error } = await supabase
+          .from("roles_utilisateurs")
+          .select("role")
+          .eq("id_utilisateur", user.id)
+
+        if (error) throw error
+
+        const roles = (rolesData ?? []).map((r: { role: string }) => r.role)
+        const allowed = hasRole(roles, ["PM", "MEAL", "DIR"])
+
+        if (!cancelled) {
+          setAuthorized(allowed)
+          if (!allowed) {
+            router.replace("/acces-non-autorise")
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthorized(false)
+          router.replace("/acces-non-autorise")
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
-  }, [params.id])
+  }, [router])
+
+  useEffect(() => {
+    if (authorized !== true || !params.id) return
+    loadData()
+  }, [params.id, authorized])
 
   const loadData = async () => {
     setLoading(true)
@@ -89,7 +139,11 @@ export default function DashboardPage() {
       ? Math.round((totalDepense / Number(projet.budget_total)) * 100)
       : 0
 
-  if (loading) {
+  if (authorized === false) {
+    return null
+  }
+
+  if (authorized === null || loading) {
     return (
       <div className="p-6">
         <div className="text-center py-12">

@@ -24,6 +24,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react"
+import { hasRole } from "@/lib/auth/niveau-acces"
 
 interface Projet {
   id: string
@@ -41,6 +42,7 @@ interface Projet {
 export default function ProjetDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(true)
   const [projet, setProjet] = useState<Projet | null>(null)
   const [responsable, setResponsable] = useState<string>("")
@@ -55,10 +57,58 @@ export default function ProjetDetailPage() {
   const [partenaireLoading, setPartenaireLoading] = useState(false)
 
   useEffect(() => {
-    if (params.id) {
-      loadProjet()
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user?.id) {
+          if (!cancelled) {
+            setAuthorized(false)
+            router.replace("/acces-non-autorise")
+          }
+          return
+        }
+
+        const { data: rolesData, error } = await supabase
+          .from("roles_utilisateurs")
+          .select("role")
+          .eq("id_utilisateur", user.id)
+
+        if (error) throw error
+
+        const roles = (rolesData ?? []).map((r: { role: string }) => r.role)
+        const allowed = hasRole(roles, ["PM", "MEAL", "DIR"])
+
+        if (!cancelled) {
+          setAuthorized(allowed)
+          if (!allowed) {
+            router.replace("/acces-non-autorise")
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAuthorized(false)
+          router.replace("/acces-non-autorise")
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
-  }, [params.id])
+  }, [router])
+
+  useEffect(() => {
+    if (authorized !== true || !params.id) return
+    loadProjet()
+  }, [params.id, authorized])
 
   const loadProjet = async () => {
     setLoading(true)
@@ -138,7 +188,11 @@ export default function ProjetDetailPage() {
     return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)))
   }
 
-  if (loading) {
+  if (authorized === false) {
+    return null
+  }
+
+  if (authorized === null || loading) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
