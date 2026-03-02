@@ -251,15 +251,6 @@ export async function generateOrdreMissionPdf(ordre: OrdreMission, options?: Gen
     y += 4
   }
 
-  if (ordre.budget_estime != null) {
-    doc.setFont("helvetica", "bold")
-    doc.setFontSize(10)
-    doc.text("Budget estimé :", margin, y)
-    doc.setFont("helvetica", "normal")
-    doc.text(`${Number(ordre.budget_estime).toLocaleString("fr-FR")} FCFA`, margin + 40, y)
-    y += 10
-  }
-
   // ---- Bloc Directeur Exécutif pleine largeur + signature ----
   if (y > pageHeight - 60) {
     doc.addPage()

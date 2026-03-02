@@ -144,10 +144,42 @@ export default function ValidationOrdresPage() {
     }
   }
 
-  const handleVoirPdf = async (ordreId: string) => {
+  const handleVoirPdf = async (ordreId: string, demandeurNom: string) => {
     setLoadingPdf(ordreId)
     try {
-      const url = await ordresMissionService.getSignedPdfUrl(ordreId)
+      // Toujours régénérer le PDF avec le nouveau modèle avant ouverture
+      const ordre = await ordresMissionService.getById(ordreId)
+      const { generateOrdreMissionPdf } = await import("@/lib/ordres-mission/generate-pdf")
+
+      const opts: { demandeurNom?: string; signatureImageUrl?: string; validateurNom?: string } = {
+        demandeurNom,
+      }
+
+      // Si une signature/validation existe déjà on l'inclut dans le PDF
+      if (ordre.signature_validation_url) {
+        try {
+          opts.signatureImageUrl = await ordresMissionService.getSignedSignatureUrl(ordre.id)
+
+          if (ordre.id_validateur_direction) {
+            const supabase = createClient()
+            const { data: pVal } = await supabase
+              .from("profils")
+              .select("nom, prenom")
+              .eq("id", ordre.id_validateur_direction)
+              .maybeSingle()
+            if (pVal) {
+              opts.validateurNom = `${pVal.prenom || ""} ${pVal.nom}`.trim()
+            }
+          }
+        } catch {
+          // Si la signature n'est pas récupérable, on continue sans bloquer l'ouverture du PDF
+        }
+      }
+
+      const blob = await generateOrdreMissionPdf(ordre, opts)
+      const pdfPath = await ordresMissionService.uploadPdf(ordre.id, blob)
+      await ordresMissionService.setPdfUrl(ordre.id, pdfPath)
+      const url = await ordresMissionService.getSignedPdfUrl(ordre.id)
       window.open(url, "_blank")
     } catch (e: any) {
       console.error(e)
@@ -257,7 +289,7 @@ export default function ValidationOrdresPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleVoirPdf(selectedOrdre.id)}
+                  onClick={() => handleVoirPdf(selectedOrdre.id, selectedOrdre.demandeur.nom)}
                   disabled={loadingPdf === selectedOrdre.id}
                   className="flex items-center gap-2 shrink-0"
                 >
